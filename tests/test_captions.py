@@ -24,7 +24,7 @@ def sample_captions() -> list[Caption]:
 
 @pytest.fixture
 def sample_video() -> Video:
-    return Video(url="http://example.com", title="Sample Video", file="sample.mp4")
+    return Video(url="http://example.com", title="Sample Video", video_id="sample")
 
 
 def create_test_image(path: Path, color: tuple[int, int, int] = (100, 100, 100)) -> None:
@@ -74,6 +74,16 @@ def test_normalize_caption_text() -> None:
 def test_deduplicate_slides() -> None:
     cap1 = Caption(start=0.0, end=1.0, text="Hello")
     cap2 = Caption(start=0.0, end=1.0, text="Hello")
+    cap3 = Caption(start=1.0, end=2.0, text="World")
+    slides = [[cap1, cap2, cap3], [cap1, cap3]]
+    result = deduplicate_slides(slides)
+    assert len(result) == 2
+    assert len(result[0]) == 2
+    assert len(result[1]) == 0
+
+def test_deduplicate_slides_with_different_timestamps() -> None:
+    cap1 = Caption(start=0.0, end=1.0, text="Hello")
+    cap2 = Caption(start=0.1, end=1.1, text="Hello")
     cap3 = Caption(start=1.0, end=2.0, text="World")
     slides = [[cap1, cap2, cap3], [cap1, cap3]]
     result = deduplicate_slides(slides)
