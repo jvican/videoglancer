@@ -7,6 +7,7 @@ import re
 from dataclasses import replace
 
 from .html_builder import heading, embody
+from .image_similarity import find_similar_shots
 from .parser import Caption
 from .process import Dir, Url, Video, delete_images
 
@@ -21,11 +22,11 @@ def convert_to_html(video: Video, directory: Dir, captions: list[Caption]) -> st
 
 
 def captions_to_html(video: Video, directory: Dir, captions: list[Caption]) -> str:
-    slides = format_captions(captions, video.url, directory)
+    slides = generate_slides(captions, video.url, directory)
     return heading + embody(video, slides)
 
 
-def format_captions(captions: list[Caption], url: Url, directory: Dir) -> str:
+def generate_slides(captions: list[Caption], url: Url, directory: Dir) -> str:
     if not captions:
         return ""
 
@@ -33,27 +34,36 @@ def format_captions(captions: list[Caption], url: Url, directory: Dir) -> str:
     per_slide = captions_per_slide(merged)
     deduped_slides = deduplicate_slides(per_slide)
 
+    duplicate_shots = find_similar_shots(directory.value.glob("glancer-img*.jpg"))
+
     blocks: list[str] = []
     for index, slide_captions in enumerate(deduped_slides):
-        block = img_caps(url, directory, index, slide_captions)
+        is_duplicate = index in duplicate_shots
+        block = img_caps(url, directory, index, slide_captions, is_duplicate)
         blocks.append(block)
 
     return "\n".join(blocks)
 
 
-def img_caps(url: Url, directory: Dir, index: int, captions: list[Caption]) -> str:
-    image_block = slide_block(url, directory, index)
+def img_caps(
+    url: Url, directory: Dir, index: int, captions: list[Caption], duplicate: bool
+) -> str:
+    image_block = slide_block(url, directory, index, duplicate)
     text_block = caps(captions)
     to_video = to_video_block(url, index)
     return image_block + text_block + to_video + "</div>"
 
 
-def slide_block(url: Url, directory: Dir, shot: int) -> str:
+def slide_block(url: Url, directory: Dir, shot: int, duplicate: bool) -> str:
     img_path = directory.value / f"glancer-img{shot:04d}.jpg"
     data = img_path.read_bytes()
     encoded = base64.b64encode(data).decode("ascii")
+    classes = ["slide-block"]
+    if duplicate:
+        classes.append("duplicate")
+    class_attr = " ".join(classes)
     return (
-        f"<div id='slide{shot}'class='slide-block'>\n"
+        f"<div id='slide{shot}' class='{class_attr}'>\n"
         "\t<div class='img'>\n"
         f"\t\t<img src='data:image/jpeg;base64, {encoded}'/></a>\n"
         "\t</div>\n"

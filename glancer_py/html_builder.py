@@ -61,6 +61,10 @@ heading = """<!doctype html>
             border-radius: 2px;
         }
 
+        .slide-block.duplicate .img img {
+            opacity: 0.55;
+        }
+
         .txt {
             flex: 1;
             line-height: 1.5;
@@ -73,6 +77,25 @@ heading = """<!doctype html>
             margin-left: auto;
         }
     </style>
+    <script>
+        document.addEventListener('DOMContentLoaded', function () {
+            const duplicates = document.querySelectorAll('.slide-block.duplicate');
+            duplicates.forEach(function (block) {
+                block.addEventListener('mouseenter', function () {
+                    const img = block.querySelector('.img img');
+                    if (img) {
+                        img.style.opacity = '1';
+                    }
+                });
+                block.addEventListener('mouseleave', function () {
+                    const img = block.querySelector('.img img');
+                    if (img) {
+                        img.style.opacity = '';
+                    }
+                });
+            });
+        });
+    </script>
 </head>
 """
 
