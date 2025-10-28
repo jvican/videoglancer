@@ -1,10 +1,19 @@
 [project]
-name = "python-glancer"
+name = "videoglancer"
 version = "0.1.1"
 description = "Python port of glancer: glance through YouTube talks by stitching slides and captions."
 readme = "README.md"
 requires-python = ">=3.9"
-authors = [{name = "Original authors of glancer and Python port contributors"}]
+authors = [
+    {
+    name = "Jorge Vicente Cantero",
+    email = "jorgevc@fastmail.es"
+    },
+    {
+    name = "Ruben Berenguel Montoro",
+    email = "ruben@mostlymaths.net"
+    }
+]
 dependencies = [
     "webvtt-py>=0.4",
     "Pillow>=10.0",
@@ -16,7 +25,7 @@ dev = [
 ]
 
 [project.scripts]
-glancer = "glancer_py.cli:main"
+glancer = "glancer.cli:main"
 
 [build-system]
 requires = ["hatchling"]
