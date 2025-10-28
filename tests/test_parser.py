@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import textwrap
 
-from glancer_py.parser import parse_vtt
-from glancer_py.captions import (
+from glancer.parser import parse_vtt
+from glancer.captions import (
     captions_per_slide,
     deduplicate_slides,
     normalize_caption_text,

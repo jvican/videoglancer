@@ -6,7 +6,7 @@ import sys
 
 from .captions import convert_to_html
 from .parser import parse_vtt
-from .process import Url, cleanup_cache, process_url
+from .process import cleanup_cache, process_url
 
 
 def _ensure_html_suffix(path: Path) -> Path:
@@ -19,7 +19,7 @@ def run(url: str, destination: str, ffmpeg_verbose: bool, auto_cleanup: bool) ->
     ffmpeg_log_level = "info" if ffmpeg_verbose else "error"
     print(f"Looking for video in {url}", file=sys.stderr)
     dir_path, video, captions_path = process_url(
-        Url(url), ffmpeg_log_level=ffmpeg_log_level
+        url, ffmpeg_log_level=ffmpeg_log_level
     )
 
     captions_text = captions_path.read_text(encoding="utf-8")
@@ -34,7 +34,7 @@ def run(url: str, destination: str, ffmpeg_verbose: bool, auto_cleanup: bool) ->
     print(f"Data written to {destination_path}", file=sys.stderr)
 
     if auto_cleanup:
-        cleanup_cache(dir_path.value)
+        cleanup_cache(dir_path)
 
 
 def main(argv: list[str] | None = None) -> None:

@@ -1,61 +1,77 @@
 from __future__ import annotations
-
 import base64
 import html
+import logging
 import math
 import re
-from dataclasses import replace
+from dataclasses import dataclass, replace
+from pathlib import Path
 
-from .html_builder import heading, embody
+from .html_builder import embody
 from .image_similarity import find_similar_shots
 from .parser import Caption
-from .process import Dir, Url, Video, delete_images
+from .process import Video, delete_images
+
+logger = logging.getLogger(__name__)
 
 SECONDS_PER_SHOT = 30
 
 
-def convert_to_html(video: Video, directory: Dir, captions: list[Caption]) -> str:
+@dataclass(frozen=True)
+class Slide:
+    index: int
+    captions: list[Caption]
+    duplicate: bool
+
+
+def convert_to_html(video: Video, directory: Path, captions: list[Caption]) -> str:
     try:
         return captions_to_html(video, directory, captions)
     finally:
         delete_images(directory)
 
 
-def captions_to_html(video: Video, directory: Dir, captions: list[Caption]) -> str:
-    slides = generate_slides(captions, video.url, directory)
-    return heading + embody(video, slides)
+def captions_to_html(video: Video, directory: Path, captions: list[Caption]) -> str:
+    slides = generate_slides(captions, directory)
+    slides_html = render_slides(slides, video.url, directory)
+    return embody(video, slides_html)
 
 
-def generate_slides(captions: list[Caption], url: Url, directory: Dir) -> str:
+def generate_slides(captions: list[Caption], directory: Path) -> list[Slide]:
     if not captions:
-        return ""
+        return []
 
     merged = merge_captions(captions)
     per_slide = captions_per_slide(merged)
     deduped_slides = deduplicate_slides(per_slide)
+    duplicate_shots = find_similar_shots(directory.glob("glancer-img*.jpg"))
 
-    duplicate_shots = find_similar_shots(directory.value.glob("glancer-img*.jpg"))
-
-    blocks: list[str] = []
+    slides: list[Slide] = []
     for index, slide_captions in enumerate(deduped_slides):
         is_duplicate = index in duplicate_shots
-        block = img_caps(url, directory, index, slide_captions, is_duplicate)
-        blocks.append(block)
+        slides.append(Slide(index=index, captions=slide_captions, duplicate=is_duplicate))
+    return slides
 
+
+def render_slides(slides: list[Slide], url: str, directory: Path) -> str:
+    blocks = [render_slide(slide, url, directory) for slide in slides]
     return "\n".join(blocks)
 
 
-def img_caps(
-    url: Url, directory: Dir, index: int, captions: list[Caption], duplicate: bool
-) -> str:
-    image_block = slide_block(url, directory, index, duplicate)
-    text_block = caps(captions)
-    to_video = to_video_block(url, index)
-    return image_block + text_block + to_video + "</div>"
+def render_slide(slide: Slide, url: str, directory: Path) -> str:
+    image_block = slide_block(url, directory, slide.index, slide.duplicate)
+    if not image_block:
+        return ""
+    text_block = caps(slide.captions)
+    to_video = to_video_block(url, slide.index)
+    return f"{image_block}{text_block}{to_video}</div>"
 
 
-def slide_block(url: Url, directory: Dir, shot: int, duplicate: bool) -> str:
-    img_path = directory.value / f"glancer-img{shot:04d}.jpg"
+def slide_block(url: str, directory: Path, shot: int, duplicate: bool) -> str:
+    img_path = directory / f"glancer-img{shot:04d}.jpg"
+    if not img_path.exists():
+        logger.warning(f"Missing image for slide {shot}: {img_path}")
+        return ""
     data = img_path.read_bytes()
     encoded = base64.b64encode(data).decode("ascii")
     classes = ["slide-block"]
@@ -70,11 +86,11 @@ def slide_block(url: Url, directory: Dir, shot: int, duplicate: bool) -> str:
     )
 
 
-def to_video_block(url: Url, shot: int) -> str:
+def to_video_block(url: str, shot: int) -> str:
     when = shot_seconds(shot, SECONDS_PER_SHOT)
     return (
         f"<div class='to-video'><a title='Go to video at timestamp {when}s' "
-        f"href='{url.value}&t={when}s'>&#8688;</a></div>"
+        f"href='{url}&t={when}s'>&#8688;</a></div>"
     )
 
 
@@ -89,12 +105,6 @@ def caps(captions: list[Caption]) -> str:
     combined = " ".join(paragraphs)
     combined = " ".join(combined.split())
     return f"\t<div class='txt'>\n\t\t{combined}\n\t</div>"
-
-
-def format_caption(caption: Caption) -> str:
-    text = caption.text.strip()
-    text = text.replace("\n", "<br/>")
-    return text
 
 
 def normalize_caption_text(text: str) -> str:

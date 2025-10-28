@@ -1,117 +1,15 @@
 from __future__ import annotations
 
-import html
-from typing import List
-
+import logging
+from pathlib import Path
+from jinja2 import Environment, FileSystemLoader
 from .process import Video
 
-
-heading = """<!doctype html>
-<html>
-<head>
-    <meta charset="utf-8">
-    <style>
-        body {
-            font-family: Inter, Arial, sans-serif;
-            background: #fdfdfd;
-            color: #0a0a0a;
-        }
-
-        #container {
-            padding: 2.5%;
-            margin: auto;
-            max-width: 1200px;
-        }
-
-        h1 {
-            text-align: center;
-            margin-bottom: 0;
-        }
-
-        h3 {
-            float: right;
-            font-size: 80%;
-        }
-
-        a {
-            color: darkgreen;
-            text-decoration: none;
-        }
-
-        a:hover {
-            text-decoration: underline;
-        }
-
-        .slide-block {
-            margin-top: 1%;
-            border: 1px solid #222;
-            border-radius: 4px;
-            display: flex;
-            gap: 2%;
-            padding: 1.5%;
-            background: #fff;
-        }
-
-        .img {
-            flex: 2;
-        }
-
-        .img img {
-            max-width: 100%;
-            border-radius: 2px;
-        }
-
-        .slide-block.duplicate .img img {
-            opacity: 0.55;
-        }
-
-        .txt {
-            flex: 1;
-            line-height: 1.5;
-            font-size: 18px;
-        }
-
-        .to-video {
-            font-size: 30px;
-            align-self: flex-end;
-            margin-left: auto;
-        }
-    </style>
-    <script>
-        document.addEventListener('DOMContentLoaded', function () {
-            const duplicates = document.querySelectorAll('.slide-block.duplicate');
-            duplicates.forEach(function (block) {
-                block.addEventListener('mouseenter', function () {
-                    const img = block.querySelector('.img img');
-                    if (img) {
-                        img.style.opacity = '1';
-                    }
-                });
-                block.addEventListener('mouseleave', function () {
-                    const img = block.querySelector('.img img');
-                    if (img) {
-                        img.style.opacity = '';
-                    }
-                });
-            });
-        });
-    </script>
-</head>
-"""
+logger = logging.getLogger(__name__)
 
 
 def embody(video: Video, body: str) -> str:
-    url = html.escape(video.url.value, quote=True)
-    title = html.escape(video.title.value)
-    parts: List[str] = [
-        "<body>",
-        "\t<div id='container'>",
-        f"\t\t<h1><a href='{url}'>{title}</a></h1>",
-        "\t\t<h3>Created with <a href='https://github.com/rberenguel/glancer'>glancer</a></h3>",
-        "<hr>",
-        body,
-        "\t</div>",
-        "</body>",
-        "</html>",
-    ]
-    return "\n".join(parts)
+    template_dir = Path(__file__).parent / "templates"
+    env = Environment(loader=FileSystemLoader(str(template_dir)))
+    template = env.get_template("template.html")
+    return template.render(video=video, slides_html=body)
