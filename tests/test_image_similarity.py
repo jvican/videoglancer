@@ -4,7 +4,7 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw
 
-from glancer_py.image_similarity import ShotSimilarityConfig, find_similar_shots
+from glancer.image_similarity import ShotSimilarityConfig, find_similar_shots
 
 
 def _write_image(

@@ -11,6 +11,7 @@ authors = [
 dependencies = [
     "webvtt-py>=0.4",
     "Pillow>=10.0",
+    "Jinja2",
 ]
 
 [project.optional-dependencies]

@@ -1,86 +1,30 @@
 from __future__ import annotations
 
-import asyncio
-import os
 import subprocess
 import sys
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import override
-
-
-@dataclass(frozen=True)
-class Url:
-    value: str
-
-    @override
-    def __str__(self) -> str:
-        return self.value
-
-
-@dataclass(frozen=True)
-class Title:
-    value: str
-
-    @override
-    def __str__(self) -> str:
-        return self.value
-
-
-@dataclass(frozen=True)
-class Dir:
-    value: Path
-
-    @override
-    def __str__(self) -> str:
-        return str(self.value)
-
-
-@dataclass(frozen=True)
-class Filename:
-    value: str
-
-    @override
-    def __str__(self) -> str:
-        return self.value
+from concurrent.futures import ThreadPoolExecutor
+import math
+import os
 
 
 @dataclass(frozen=True)
 class Video:
-    url: Url
-    title: Title
-    file: Filename
+    url: str
+    title: str
+    file: str
 
 
-def _run_command(args: list[str]) -> None:
-    subprocess.run(args, check=True)
-
-
-def get_title(url: Url) -> Title:
+def get_title(url: str) -> str:
     result = subprocess.run(
         [
             "yt-dlp",
             "-e",
             "--no-warnings",
             "--no-playlist",
-            str(url),
-        ],
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    return Title(result.stdout.strip())
-
-
-def get_id(url: Url) -> str:
-    result = subprocess.run(
-        [
-            "yt-dlp",
-            "--get-id",
-            "--no-warnings",
-            "--no-playlist",
-            str(url),
+            url,
         ],
         check=True,
         capture_output=True,
@@ -89,14 +33,29 @@ def get_id(url: Url) -> str:
     return result.stdout.strip()
 
 
-def youtube_url(video_id: str) -> Url:
-    return Url(f"https://www.youtube.com/watch?v={video_id}")
+def get_id(url: str) -> str:
+    result = subprocess.run(
+        [
+            "yt-dlp",
+            "--get-id",
+            "--no-warnings",
+            "--no-playlist",
+            url,
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    return result.stdout.strip()
 
 
-def generate_video(video: Video, directory: Dir) -> None:
-    dir_path = directory.value
-    video_name = video.file.value
-    output_template = dir_path / f"{video_name}.%(ext)s"
+def youtube_url(video_id: str) -> str:
+    return f"https://www.youtube.com/watch?v={video_id}"
+
+
+def generate_video(video: Video, directory: Path) -> None:
+    video_name = video.file
+    output_template = directory / f"{video_name}.%(ext)s"
     args = [
         "yt-dlp",
         "-q",
@@ -114,14 +73,14 @@ def generate_video(video: Video, directory: Dir) -> None:
         "--no-warnings",
         "-k",
         "--no-cache-dir",
-        str(video.url),
+        video.url,
     ]
-    _run_command(args)
+    subprocess.run(args, check=True)
 
 
 def _ffmpeg_args(
-    directory: Dir,
-    filename: Filename,
+    directory: Path,
+    filename: str,
     selector: list[str],
     suffix: str,
     *,
@@ -129,9 +88,8 @@ def _ffmpeg_args(
     extra_args: list[str] | None = None,
     log_level: str = "error",
 ) -> list[str]:
-    dir_path = directory.value
-    input_path = dir_path / f"{filename.value}.mp4"
-    output_pattern = dir_path / f"glancer-img{suffix}.jpg"
+    input_path = directory / f"{filename}.mp4"
+    output_pattern = directory / f"glancer-img{suffix}.jpg"
     command = ["ffmpeg", "-y", "-hide_banner", "-loglevel", log_level]
     if pre_input:
         command.extend(pre_input)
@@ -143,31 +101,8 @@ def _ffmpeg_args(
     return command
 
 
-async def _run_ffmpeg_commands(commands: list[list[str]], max_parallel: int) -> None:
-    semaphore = asyncio.Semaphore(max_parallel)
-
-    async def worker(cmd: list[str]) -> None:
-        async with semaphore:
-            proc = await asyncio.create_subprocess_exec(
-                *cmd,
-                stdout=asyncio.subprocess.PIPE,
-                stderr=asyncio.subprocess.PIPE,
-            )
-            stdout, stderr = await proc.communicate()
-            if proc.returncode != 0:
-                raise subprocess.CalledProcessError(
-                    proc.returncode,  # pyright: ignore[reportArgumentType]
-                    cmd,
-                    output=stdout,
-                    stderr=stderr,
-                )
-
-    await asyncio.gather(*(worker(cmd) for cmd in commands))
-
-
-def generate_shots(directory: Dir, filename: Filename, log_level: str) -> None:
-    dir_path = directory.value
-    video_path = dir_path / f"{filename.value}.mp4"
+def generate_shots(directory: Path, filename: str, log_level: str) -> None:
+    video_path = directory / f"{filename}.mp4"
     duration = get_video_duration(video_path)
 
     frame_selector = [
@@ -185,9 +120,6 @@ def generate_shots(directory: Dir, filename: Filename, log_level: str) -> None:
         while current < duration:
             starts.append(int(current))
             current += chunk
-
-    import math
-    import os
 
     tasks: list[list[str]] = []
     for start in starts:
@@ -212,7 +144,8 @@ def generate_shots(directory: Dir, filename: Filename, log_level: str) -> None:
         cpu_count = os.cpu_count() or 1
         target = max(4, cpu_count * 2)
         max_workers = max(1, min(len(tasks), target))
-        asyncio.run(_run_ffmpeg_commands(tasks, max_workers))
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            executor.map(lambda cmd: subprocess.run(cmd, check=True), tasks)
 
     hero_selector = [
         "-q:v",
@@ -229,19 +162,19 @@ def generate_shots(directory: Dir, filename: Filename, log_level: str) -> None:
         pre_input=hero_pre_input,
         log_level=log_level,
     )
-    _run_command(hero_args)
+    subprocess.run(hero_args, check=True)
 
 
-def delete_video(directory: Dir, filename: Filename) -> None:
-    video_path = directory.value / f"{filename.value}.mp4"
+def delete_video(directory: Path, filename: str) -> None:
+    video_path = directory / f"{filename}.mp4"
     try:
         video_path.unlink()
     except FileNotFoundError:
         pass
 
 
-def delete_images(directory: Dir) -> None:
-    for img_path in directory.value.glob("glancer-img*.jpg"):
+def delete_images(directory: Path) -> None:
+    for img_path in directory.glob("glancer-img*.jpg"):
         try:
             img_path.unlink()
         except FileNotFoundError:
@@ -292,25 +225,25 @@ def get_video_duration(video_path: Path) -> int:
         return 0
 
 
-def process_url(url: Url, ffmpeg_log_level: str = "error") -> tuple[Dir, Video, Path]:
+def process_url(url: str, ffmpeg_log_level: str = "error") -> tuple[Path, Video, Path]:
     temp_root = Path(tempfile.gettempdir()) / "glancer"
     temp_root.mkdir(parents=True, exist_ok=True)
     title = get_title(url)
     print(
-        f"The video is titled '{title.value.strip()}'",
+        f"The video is titled '{title.strip()}'",
         file=sys.stderr,
     )
     video_id = get_id(url)
     full_url = youtube_url(video_id)
-    print(f"Seems like the video is in {full_url.value}", file=sys.stderr)
+    print(f"Seems like the video is in {full_url}", file=sys.stderr)
     cache_dir = temp_root / video_id
     cache_dir.mkdir(parents=True, exist_ok=True)
-    dir_path = Dir(cache_dir)
-    video_name = Filename(video_id)
+    dir_path = cache_dir
+    video_name = video_id
     video = Video(full_url, title, video_name)
 
-    video_path = cache_dir / f"{video_name.value}.mp4"
-    captions_path = cache_dir / f"{video_name.value}.en.vtt"
+    video_path = cache_dir / f"{video_name}.mp4"
+    captions_path = cache_dir / f"{video_name}.en.vtt"
     if video_path.exists() and captions_path.exists():
         print(
             f"Reusing cached video and subtitles in {cache_dir}",
@@ -321,7 +254,7 @@ def process_url(url: Url, ffmpeg_log_level: str = "error") -> tuple[Dir, Video, 
         generate_video(video, dir_path)
         dir_str = str(cache_dir)
         download_message = (
-            f"Downloaded video to {dir_str}{video_name.value}(.mp4|en.vtt)"
+            f"Downloaded video to {dir_str}{video_name}(.mp4|en.vtt)"
         )
         print(download_message, file=sys.stderr)
 
