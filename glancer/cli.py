@@ -6,7 +6,7 @@ import sys
 from pathlib import Path
 
 from .captions import convert_to_html
-from .parser import parse_vtt
+from .parser import parse_srt
 from .playlist import Playlist
 from .process import cleanup_cache, delete_images, process_video
 
@@ -54,7 +54,7 @@ def process_and_save_video(
     dir_path, video, captions_path = process_video(url, ffmpeg_log_level)
     try:
         captions_text = captions_path.read_text(encoding="utf-8")
-        parsed = parse_vtt(captions_text)
+        parsed = parse_srt(captions_text)
         html = convert_to_html(video, dir_path, parsed)
 
         if destination.is_dir():
