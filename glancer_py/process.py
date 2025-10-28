@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-import random
-import string
+import asyncio
+import os
 import subprocess
 import sys
 import tempfile
-import asyncio
 from dataclasses import dataclass
 from pathlib import Path
 from typing import override
@@ -157,7 +156,7 @@ async def _run_ffmpeg_commands(commands: list[list[str]], max_parallel: int) -> 
             stdout, stderr = await proc.communicate()
             if proc.returncode != 0:
                 raise subprocess.CalledProcessError(
-                    proc.returncode,
+                    proc.returncode,  # pyright: ignore[reportArgumentType]
                     cmd,
                     output=stdout,
                     stderr=stderr,
@@ -209,10 +208,10 @@ def generate_shots(directory: Dir, filename: Filename, log_level: str) -> None:
         )
         tasks.append(cmd)
 
-    max_workers = min(len(tasks), (os.cpu_count() or 1)) if tasks else 1
-    if max_workers < 1:
-        max_workers = 1
     if tasks:
+        cpu_count = os.cpu_count() or 1
+        target = max(4, cpu_count * 2)
+        max_workers = max(1, min(len(tasks), target))
         asyncio.run(_run_ffmpeg_commands(tasks, max_workers))
 
     hero_selector = [
@@ -249,8 +248,21 @@ def delete_images(directory: Dir) -> None:
             continue
 
 
-def _random_filename(length: int = 10) -> str:
-    return "".join(random.choice(string.ascii_lowercase) for _ in range(length))
+def cleanup_cache(path: Path) -> None:
+    if not path.exists():
+        return
+    for item in path.iterdir():
+        if item.is_dir():
+            cleanup_cache(item)
+        else:
+            try:
+                item.unlink()
+            except FileNotFoundError:
+                continue
+    try:
+        path.rmdir()
+    except OSError:
+        pass
 
 
 SECONDS_PER_SHOT = 30
@@ -308,7 +320,9 @@ def process_url(url: Url, ffmpeg_log_level: str = "error") -> tuple[Dir, Video, 
         print("Downloading video (this may take a while)", file=sys.stderr)
         generate_video(video, dir_path)
         dir_str = str(cache_dir)
-        download_message = f"Downloaded video to {dir_str}{video_name.value}(.mp4|en.vtt)"
+        download_message = (
+            f"Downloaded video to {dir_str}{video_name.value}(.mp4|en.vtt)"
+        )
         print(download_message, file=sys.stderr)
 
     print(

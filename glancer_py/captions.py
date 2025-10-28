@@ -72,14 +72,23 @@ def caps(captions: list[Caption]) -> str:
     if not captions:
         return "\t<div class='txt'>\n\t</div>"
 
-    formatted = "\n".join("\t\t" + format_caption(caption) for caption in captions)
-    return f"\t<div class='txt'>\n{formatted}\n\t</div>"
+    paragraphs = [normalize_caption_text(caption.text) for caption in captions]
+    paragraphs = [text for text in paragraphs if text]
+    if not paragraphs:
+        return "\t<div class='txt'>\n\t</div>"
+    combined = " ".join(paragraphs)
+    combined = " ".join(combined.split())
+    return f"\t<div class='txt'>\n\t\t{combined}\n\t</div>"
 
 
 def format_caption(caption: Caption) -> str:
     text = caption.text.strip()
     text = text.replace("\n", "<br/>")
     return text
+
+
+def normalize_caption_text(text: str) -> str:
+    return " ".join(text.strip().replace("\n", " ").split())
 
 
 def captions_per_slide(captions: list[Caption]) -> list[list[Caption]]:

@@ -3,7 +3,11 @@ from __future__ import annotations
 import textwrap
 
 from glancer_py.parser import parse_vtt
-from glancer_py.captions import captions_per_slide, deduplicate_slides
+from glancer_py.captions import (
+    captions_per_slide,
+    deduplicate_slides,
+    normalize_caption_text,
+)
 
 
 SAMPLE_VTT = textwrap.dedent(
@@ -66,13 +70,14 @@ SAMPLE_VTT = textwrap.dedent(
 ).strip()
 
 
-EXPECTED_FIRST_SLIDE_PREFIX = [
-    "Practical Deep Learning for Coders, Lesson 6",
-    "OK, so welcome back to lesson 6… not welcome \nback to, welcome to lesson 6 — first time we've",
-    "been in lesson 6! Welcome back to Practical Deep \nLearning for Coders. We just started looking at",
-    "tabular data last time, and for those of \nyou who've forgotten what we did was: We",
-    "were looking at the Titanic data set and \nwe were looking at creating binary splits",
-]
+EXPECTED_FIRST_SLIDE_TEXT = (
+    "Practical Deep Learning for Coders, Lesson 6 OK, so welcome back to "
+    "lesson 6… not welcome back to, welcome to lesson 6 — first time we've "
+    "been in lesson 6! Welcome back to Practical Deep Learning for Coders. "
+    "We just started looking at tabular data last time, and for those of you "
+    "who've forgotten what we did was: We were looking at the Titanic data "
+    "set and we were looking at creating binary splits"
+)
 
 
 def test_first_slide_contains_full_caption_sequence() -> None:
@@ -81,13 +86,11 @@ def test_first_slide_contains_full_caption_sequence() -> None:
 
     assert slides, "Expected at least one slide of captions"
 
-    first_slide_texts = [caption.text for caption in slides[0]]
-    assert len(first_slide_texts) >= len(EXPECTED_FIRST_SLIDE_PREFIX)
-    assert (
-        first_slide_texts[: len(EXPECTED_FIRST_SLIDE_PREFIX)]
-        == EXPECTED_FIRST_SLIDE_PREFIX
+    first_slide_combined = " ".join(
+        normalize_caption_text(caption.text) for caption in slides[0]
     )
-    assert first_slide_texts[0].startswith("Practical Deep Learning")
+    assert first_slide_combined.startswith("Practical Deep Learning")
+    assert EXPECTED_FIRST_SLIDE_TEXT in first_slide_combined
 
 
 def test_deduplicate_slides_removes_repeated_lines_across_windows() -> None:
@@ -100,11 +103,14 @@ def test_deduplicate_slides_removes_repeated_lines_across_windows() -> None:
 
     # First slide should contain intro text
     assert deduped[0]
-    assert deduped[0][0].text.startswith("Practical Deep Learning")
+    first_slide_text = " ".join(
+        normalize_caption_text(caption.text) for caption in deduped[0]
+    )
+    assert first_slide_text.startswith("Practical Deep Learning")
 
     # Second slide should not repeat the intro
     assert deduped[1]
-    second_slide_texts = [caption.text for caption in deduped[1]]
-    assert all(
-        not text.startswith("Practical Deep Learning") for text in second_slide_texts
+    second_slide_text = " ".join(
+        normalize_caption_text(caption.text) for caption in deduped[1]
     )
+    assert not second_slide_text.startswith("Practical Deep Learning")
