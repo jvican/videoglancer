@@ -23,14 +23,14 @@ the video and English subtitles, while `ffmpeg` extracts frames every 30 seconds
 Install using [uv](https://docs.astral.sh/uv/):
 
 ```bash
-uv tool install git+https://github.com/rberenguel/glancer.git --subdirectory python
+uv tool install git+https://github.com/jvican/videoglancer.git
 ```
 
 Or clone and install locally:
 
 ```bash
-git clone https://github.com/rberenguel/glancer.git
-cd glancer/python
+git clone https://github.com/jvican/videoglancer.git
+cd videoglancer
 uv tool install .
 ```
 
@@ -45,7 +45,6 @@ glancer <URL> <FILEPATH>
 For contributors who want to hack on the tool, install in editable mode:
 
 ```bash
-cd glancer/python
 uv venv
 source .venv/bin/activate  # On Windows: .venv\Scripts\activate
 uv pip install -e .

@@ -5,14 +5,8 @@ description = "Python port of glancer: glance through YouTube talks by stitching
 readme = "README.md"
 requires-python = ">=3.9"
 authors = [
-    {
-    name = "Jorge Vicente Cantero",
-    email = "jorgevc@fastmail.es"
-    },
-    {
-    name = "Ruben Berenguel Montoro",
-    email = "ruben@mostlymaths.net"
-    }
+    {name = "Jorge Vicente Cantero", email = "jorgevc@fastmail.es"},
+    {name = "Ruben Berenguel Montoro", email = "ruben@mostlymaths.net"},
 ]
 dependencies = [
     "webvtt-py>=0.4",
@@ -30,6 +24,9 @@ glancer = "glancer.cli:main"
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["glancer"]
 
 [tool.pyright]
 typeCheckingMode = "basic"
