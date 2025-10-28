@@ -12,7 +12,7 @@ heading = """<!doctype html>
     <meta charset="utf-8">
     <style>
         body {
-            font-family: Arial, sans-serif;
+            font-family: Inter, Arial, sans-serif;
             background: #fdfdfd;
             color: #0a0a0a;
         }
@@ -85,6 +85,7 @@ def embody(video: Video, body: str) -> str:
         "\t<div id='container'>",
         f"\t\t<h1><a href='{url}'>{title}</a></h1>",
         "\t\t<h3>Created with <a href='https://github.com/rberenguel/glancer'>glancer</a></h3>",
+        "<hr>",
         body,
         "\t</div>",
         "</body>",
