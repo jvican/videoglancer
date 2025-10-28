@@ -1,6 +1,7 @@
 from __future__ import annotations
 import base64
 import html
+import logging
 import math
 import re
 from dataclasses import dataclass, replace
@@ -10,6 +11,8 @@ from .html_builder import embody
 from .image_similarity import find_similar_shots
 from .parser import Caption
 from .process import Video, delete_images
+
+logger = logging.getLogger(__name__)
 
 SECONDS_PER_SHOT = 30
 
@@ -67,6 +70,7 @@ def render_slide(slide: Slide, url: str, directory: Path) -> str:
 def slide_block(url: str, directory: Path, shot: int, duplicate: bool) -> str:
     img_path = directory / f"glancer-img{shot:04d}.jpg"
     if not img_path.exists():
+        logger.warning(f"Missing image for slide {shot}: {img_path}")
         return ""
     data = img_path.read_bytes()
     encoded = base64.b64encode(data).decode("ascii")
