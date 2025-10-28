@@ -18,35 +18,43 @@ class Video:
 
 
 def get_title(url: str) -> str:
-    result = subprocess.run(
-        [
-            "yt-dlp",
-            "-e",
-            "--no-warnings",
-            "--no-playlist",
-            url,
-        ],
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    return result.stdout.strip()
+    try:
+        result = subprocess.run(
+            [
+                "yt-dlp",
+                "-e",
+                "--no-warnings",
+                "--no-playlist",
+                url,
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        return result.stdout.strip()
+    except subprocess.CalledProcessError as e:
+        print(f"yt-dlp error getting title:\nstdout: {e.stdout}\nstderr: {e.stderr}", file=sys.stderr)
+        raise
 
 
 def get_id(url: str) -> str:
-    result = subprocess.run(
-        [
-            "yt-dlp",
-            "--get-id",
-            "--no-warnings",
-            "--no-playlist",
-            url,
-        ],
-        check=True,
-        capture_output=True,
-        text=True,
-    )
-    return result.stdout.strip()
+    try:
+        result = subprocess.run(
+            [
+                "yt-dlp",
+                "--get-id",
+                "--no-warnings",
+                "--no-playlist",
+                url,
+            ],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        return result.stdout.strip()
+    except subprocess.CalledProcessError as e:
+        print(f"yt-dlp error getting ID:\nstdout: {e.stdout}\nstderr: {e.stderr}", file=sys.stderr)
+        raise
 
 
 def youtube_url(video_id: str) -> str:
@@ -75,7 +83,11 @@ def generate_video(video: Video, directory: Path) -> None:
         "--no-cache-dir",
         video.url,
     ]
-    subprocess.run(args, check=True)
+    try:
+        subprocess.run(args, check=True, capture_output=True, text=True)
+    except subprocess.CalledProcessError as e:
+        print(f"yt-dlp error downloading video:\nstdout: {e.stdout}\nstderr: {e.stderr}", file=sys.stderr)
+        raise
 
 
 def _ffmpeg_args(

@@ -57,15 +57,15 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y ffmpeg
 
-    - name: Install yt-dlp
-      run: pip install yt-dlp
-
     - name: Install uv
       run: pip install uv
+
+    - name: Install yt-dlp
+      run: uv pip install --system -U yt-dlp
 
     - name: Install dependencies
       run: uv pip install --system -e ".[dev]"
 
     - name: Run integration tests
-      run: pytest -v -m integration
+      run: pytest -v -m integration --tb=short
       timeout-minutes: 10
