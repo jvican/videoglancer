@@ -1,0 +1,22 @@
+[project]
+name = "python-glancer"
+version = "0.1.1"
+description = "Python port of glancer: glance through YouTube talks by stitching slides and captions."
+readme = "README.md"
+requires-python = ">=3.9"
+authors = [{name = "Original authors of glancer and Python port contributors"}]
+dependencies = [
+    "webvtt-py>=0.4",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.pyright]
+typeCheckingMode = "basic"

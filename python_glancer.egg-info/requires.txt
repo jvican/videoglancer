@@ -1,0 +1,4 @@
+webvtt-py>=0.4
+
+[dev]
+pytest>=8.3

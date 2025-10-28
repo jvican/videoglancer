@@ -1,0 +1,33 @@
+# Python Glancer
+
+This folder contains a Python reimplementation of the original `glancer` tool.
+It exposes the same command line interface:
+
+```
+glancer URL FILEPATH
+```
+
+- `URL`: YouTube URL to fetch.
+- `FILEPATH`: Base name for the generated HTML (omit the `.html` extension).
+
+The Python port requires the following executables on your `$PATH`:
+
+- `yt-dlp`
+- `ffmpeg`
+
+Both commands are used exactly like in the Haskell version: `yt-dlp` downloads
+the video and English subtitles, while `ffmpeg` extracts frames every 30 seconds.
+
+## Development
+
+From this directory you can run the tool with:
+
+```
+python -m glancer_py.cli <URL> <FILEPATH>
+```
+
+Once installed via `pip install .`, you can use the `glancer` entry point.
+
+The generated HTML mirrors the original layout. Each slide combines an embedded
+base64 JPEG frame with the captions that overlap that 30-second window, and
+links let you jump back to the corresponding point in YouTube.

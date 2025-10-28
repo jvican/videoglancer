@@ -1,0 +1,14 @@
+README.md
+pyproject.toml
+glancer_py/__init__.py
+glancer_py/captions.py
+glancer_py/cli.py
+glancer_py/html_builder.py
+glancer_py/parser.py
+glancer_py/process.py
+python_glancer.egg-info/PKG-INFO
+python_glancer.egg-info/SOURCES.txt
+python_glancer.egg-info/dependency_links.txt
+python_glancer.egg-info/requires.txt
+python_glancer.egg-info/top_level.txt
+tests/test_parser.py
