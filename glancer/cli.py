@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import logging
 import re
 import sys
 from pathlib import Path
@@ -28,7 +29,7 @@ def run(
 ) -> None:
     ffmpeg_log_level = "info" if verbose else "error"
 
-    # Use current directory if no destination provided
+    # Use current directory if no destination provided, we'll create a new file with the video name
     dest_path = Path(destination) if destination else Path.cwd()
 
     if Playlist.is_playlist(url):
@@ -83,6 +84,10 @@ def process_and_save_video(
 
 
 def main(argv: list[str] | None = None) -> None:
+    logging.basicConfig(
+        level=logging.WARNING, format="%(levelname)s: %(message)s", stream=sys.stderr
+    )
+
     parser = argparse.ArgumentParser(prog="glancer", description="Glancer")
     parser.add_argument("url", help="YouTube URL or playlist URL")
     parser.add_argument(
@@ -94,7 +99,7 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument(
         "--verbose",
         action="store_true",
-        help="Show verbose ffmpeg logs",
+        help="Enable debug logging and show verbose ffmpeg logs",
     )
     parser.add_argument(
         "--auto-cleanup",
@@ -107,6 +112,10 @@ def main(argv: list[str] | None = None) -> None:
         help="Disable duplicate slide detection",
     )
     args = parser.parse_args(argv)
+
+    log_level = logging.DEBUG if args.verbose else logging.WARNING
+    logging.getLogger().setLevel(log_level)
+
     run(
         args.url,
         args.destination,
