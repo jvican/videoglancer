@@ -10,7 +10,7 @@ from pathlib import Path
 from .html_builder import embody
 from .image_similarity import find_similar_shots
 from .parser import Caption
-from .process import Video, delete_images
+from .process import Video
 
 logger = logging.getLogger(__name__)
 
@@ -24,30 +24,35 @@ class Slide:
     duplicate: bool
 
 
-def convert_to_html(video: Video, directory: Path, captions: list[Caption]) -> str:
-    try:
-        return captions_to_html(video, directory, captions)
-    finally:
-        delete_images(directory)
+def convert_to_html(
+    video: Video, directory: Path, captions: list[Caption], detect_duplicates: bool = True
+) -> str:
+    return captions_to_html(video, directory, captions, detect_duplicates)
 
 
-def captions_to_html(video: Video, directory: Path, captions: list[Caption]) -> str:
-    slides = generate_slides(captions, directory)
+def captions_to_html(
+    video: Video, directory: Path, captions: list[Caption], detect_duplicates: bool = True
+) -> str:
+    slides = generate_slides(captions, directory, detect_duplicates)
     slides_html = render_slides(slides, video.url, directory)
     return embody(video, slides_html)
 
 
-def generate_slides(captions: list[Caption], directory: Path) -> list[Slide]:
+def generate_slides(
+    captions: list[Caption], directory: Path, detect_duplicates: bool = True
+) -> list[Slide]:
     if not captions:
         return []
 
-    merged = merge_captions(captions)
-    per_slide = captions_per_slide(merged)
-    deduped_slides = deduplicate_slides(per_slide)
-    duplicate_shots = find_similar_shots(directory.glob("glancer-img*.jpg"))
+    per_slide = captions_per_slide(captions)
+
+    if detect_duplicates:
+        duplicate_shots = find_similar_shots(directory.glob("glancer-img*.jpg"))
+    else:
+        duplicate_shots = set()
 
     slides: list[Slide] = []
-    for index, slide_captions in enumerate(deduped_slides):
+    for index, slide_captions in enumerate(per_slide):
         is_duplicate = index in duplicate_shots
         slides.append(Slide(index=index, captions=slide_captions, duplicate=is_duplicate))
     return slides
@@ -156,30 +161,6 @@ TAG_RE = re.compile(r"<[^>]+>")
 
 def strip_tags(text: str) -> str:
     return TAG_RE.sub("", text)
-
-
-def merge_captions(captions: list[Caption]) -> list[Caption]:
-    merged: list[Caption] = []
-    for caption in captions:
-        lines = [line for line in caption.text.splitlines() if line.strip()]
-        combined = "\n".join(lines)
-        merged.append(replace(caption, text=combined))
-    return merged
-
-
-def deduplicate_slides(slides: list[list[Caption]]) -> list[list[Caption]]:
-    seen: set[tuple[float, float, str]] = set()
-    result: list[list[Caption]] = []
-    for slide in slides:
-        unique: list[Caption] = []
-        for caption in slide:
-            key = (caption.start, caption.end, caption.text)
-            if key in seen:
-                continue
-            seen.add(key)
-            unique.append(caption)
-        result.append(unique)
-    return result
 
 
 def overlaps_interval(
