@@ -176,16 +176,18 @@ def _generate_shots(directory: Path, filename: str, log_level: str) -> None:
     tasks = []
     for start in starts:
         length = max(0, min(CHUNK_SECONDS, duration - start))
+        if length <= 0:
+            continue
+
         pre_input = ["-ss", str(start)]
-        if length > 0:
-            pre_input.extend(["-t", str(length)])
+        pre_input.extend(["-t", str(length)])
         start_number = int(math.floor(start / SECONDS_PER_SHOT))
         extra = ["-start_number", str(start_number)]
 
         # For short chunks, use a higher frame rate to ensure we get at least one frame
         current_frame_selector = frame_selector
-        if length > 0 and length < SECONDS_PER_SHOT:
-            current_frame_selector = ["-vf", f"fps=1/{length}", "-pix_fmt", "yuvj420p", "-q:v", JPEG_QUALITY]
+        if length < SECONDS_PER_SHOT:
+            current_frame_selector = ["-vf", f"fps=1/{max(1, length)}", "-pix_fmt", "yuvj420p", "-q:v", JPEG_QUALITY]
 
         cmd = _ffmpeg_args(
             directory,
