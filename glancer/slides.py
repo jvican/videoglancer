@@ -159,7 +159,12 @@ def captions_per_slide(captions: list[Caption]) -> list[list[Caption]]:
     slides: list[list[Caption]] = []
     for shot_index in range(total_shots):
         shot_start = shot_index * SECONDS_PER_SHOT
-        shot_end = shot_start + SECONDS_PER_SHOT
+        # For the last slide, extend to capture all remaining captions
+        # instead of cutting off at the next 30-second boundary
+        if shot_index == total_shots - 1:
+            shot_end = cleaned[-1].end
+        else:
+            shot_end = shot_start + SECONDS_PER_SHOT
         overlapping = [
             caption
             for caption in cleaned
