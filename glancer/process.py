@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 import math
 import os
 import subprocess
@@ -8,6 +9,8 @@ import tempfile
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from pathlib import Path
+
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -177,6 +180,9 @@ def _generate_shots(directory: Path, filename: str, log_level: str) -> None:
     video_path = directory / f"{filename}.mp4"
     duration = get_video_duration(video_path)
 
+    logger.debug(f"Generating shots for video: {filename}")
+    logger.debug(f"Video duration: {duration} seconds")
+
     frame_selector = ["-vf", "fps=1/30", "-pix_fmt", "yuvj420p", "-q:v", JPEG_QUALITY]
     starts = (
         [0]
@@ -184,16 +190,25 @@ def _generate_shots(directory: Path, filename: str, log_level: str) -> None:
         else list(range(0, duration, max(CHUNK_SECONDS, SECONDS_PER_SHOT)))
     )
 
+    logger.debug(f"Processing {len(starts)} chunks for video")
+
     tasks = []
-    for start in starts:
+    for chunk_idx, start in enumerate(starts):
         length = max(0, min(CHUNK_SECONDS, duration - start))
         if length <= 0:
+            logger.warning(f"Skipping chunk {chunk_idx} at {start}s: length={length}")
             continue
 
         pre_input = ["-ss", str(start)]
         pre_input.extend(["-t", str(length)])
         start_number = int(math.floor(start / SECONDS_PER_SHOT))
         extra = ["-start_number", str(start_number)]
+
+        expected_frames = int(math.ceil(length / SECONDS_PER_SHOT))
+        logger.debug(
+            f"Chunk {chunk_idx}: start={start}s, length={length}s, "
+            f"start_number={start_number}, expected_frames={expected_frames}"
+        )
 
         # For short chunks, use a higher frame rate to ensure we get at least one frame
         current_frame_selector = frame_selector
@@ -206,6 +221,7 @@ def _generate_shots(directory: Path, filename: str, log_level: str) -> None:
                 "-q:v",
                 JPEG_QUALITY,
             ]
+            logger.debug(f"Chunk {chunk_idx}: Using adjusted fps for short chunk")
 
         cmd = _ffmpeg_args(
             directory,
@@ -216,25 +232,37 @@ def _generate_shots(directory: Path, filename: str, log_level: str) -> None:
             extra_args=extra,
             log_level=log_level,
         )
+        logger.debug(f"Chunk {chunk_idx}: ffmpeg command: {' '.join(cmd)}")
         tasks.append(cmd)
 
     if tasks:
+        logger.debug(f"Running {len(tasks)} ffmpeg tasks in parallel")
         with ThreadPoolExecutor(
             max_workers=max(1, min(len(tasks), (os.cpu_count() or 1) * 2))
         ) as executor:
             executor.map(run_ffmpeg, tasks)
 
-    hero_selector = ["-pix_fmt", "yuvj420p", "-q:v", JPEG_QUALITY, "-vframes", "1"]
-    hero_pre_input = ["-ss", "3"]
-    hero_args = _ffmpeg_args(
+    # Generate first slide image at 3 seconds
+    first_frame_selector = [
+        "-pix_fmt",
+        "yuvj420p",
+        "-q:v",
+        JPEG_QUALITY,
+        "-vframes",
+        "1",
+    ]
+    first_frame_pre_input = ["-ss", "3"]
+    first_frame_args = _ffmpeg_args(
         directory,
         filename,
-        hero_selector,
+        first_frame_selector,
         "0000",
-        pre_input=hero_pre_input,
+        pre_input=first_frame_pre_input,
         log_level=log_level,
     )
-    run_ffmpeg(hero_args)
+
+    logger.debug("Generating first slide image (glancer-img0000.jpg)")
+    run_ffmpeg(first_frame_args)
 
 
 def cleanup_cache(path: Path) -> None:

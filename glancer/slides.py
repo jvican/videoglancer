@@ -25,13 +25,19 @@ class Slide:
 
 
 def convert_to_html(
-    video: Video, directory: Path, captions: list[Caption], detect_duplicates: bool = True
+    video: Video,
+    directory: Path,
+    captions: list[Caption],
+    detect_duplicates: bool = True,
 ) -> str:
     return captions_to_html(video, directory, captions, detect_duplicates)
 
 
 def captions_to_html(
-    video: Video, directory: Path, captions: list[Caption], detect_duplicates: bool = True
+    video: Video,
+    directory: Path,
+    captions: list[Caption],
+    detect_duplicates: bool = True,
 ) -> str:
     slides = generate_slides(captions, directory, detect_duplicates)
     slides_html = render_slides(slides, video.url, directory)
@@ -45,6 +51,7 @@ def generate_slides(
         return []
 
     per_slide = captions_per_slide(captions)
+    logger.debug(f"Generated {len(per_slide)} slides from captions")
 
     if detect_duplicates:
         duplicate_shots = find_similar_shots(directory.glob("glancer-img*.jpg"))
@@ -54,7 +61,13 @@ def generate_slides(
     slides: list[Slide] = []
     for index, slide_captions in enumerate(per_slide):
         is_duplicate = index in duplicate_shots
-        slides.append(Slide(index=index, captions=slide_captions, duplicate=is_duplicate))
+        slides.append(
+            Slide(index=index, captions=slide_captions, duplicate=is_duplicate)
+        )
+
+    if slides:
+        logger.debug(f"Created {len(slides)} slides (indices 0-{len(slides) - 1})")
+
     return slides
 
 
@@ -75,7 +88,27 @@ def render_slide(slide: Slide, url: str, directory: Path) -> str:
 def slide_block(url: str, directory: Path, shot: int, duplicate: bool) -> str:
     img_path = directory / f"glancer-img{shot:04d}.jpg"
     if not img_path.exists():
-        logger.warning(f"Missing image for slide {shot}: {img_path}")
+        # Log available images around this slide number
+        all_images = sorted(directory.glob("glancer-img*.jpg"))
+        image_numbers = []
+        for img in all_images:
+            try:
+                num = int(img.stem.replace("glancer-img", ""))
+                image_numbers.append(num)
+            except ValueError:
+                pass
+
+        context = []
+        for num in image_numbers:
+            if abs(num - shot) <= 5:
+                context.append(num)
+
+        logger.warning(
+            f"Missing image for slide {shot}: {img_path}\n"
+            f"  Expected timestamp: {shot * SECONDS_PER_SHOT}s\n"
+            f"  Total images available: {len(all_images)}\n"
+            f"  Image numbers near slide {shot}: {context if context else 'none'}"
+        )
         return ""
     data = img_path.read_bytes()
     encoded = base64.b64encode(data).decode("ascii")
@@ -145,7 +178,9 @@ def num_shots(captions: list[Caption], secs_per_shot: int) -> int:
         return 0
 
     last_end = captions[-1].end
-    shots = int(math.ceil(last_end / secs_per_shot))
+    # Use floor to match ffmpeg's behavior with fps=1/30
+    # ffmpeg generates frames at 0s, 30s, 60s, ... and stops when time exceeds duration
+    shots = int(math.floor(last_end / secs_per_shot))
     return max(1, shots)
 
 
