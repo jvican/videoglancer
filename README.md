@@ -1,22 +1,48 @@
 # Python Glancer
 
 This folder contains a Python reimplementation of the original [glancer](https://github.com/rberenguel/glancer) tool.
-It exposes the same command line interface:
 
-```
-glancer URL FILEPATH
+## Usage
+
+```bash
+glancer URL [DESTINATION] [OPTIONS]
 ```
 
-- `URL`: YouTube URL to fetch.
-- `FILEPATH`: Base name for the generated HTML (omit the `.html` extension).
+**Arguments:**
+- `URL`: YouTube URL or playlist URL to process
+- `DESTINATION` (optional): Output HTML file or directory
+  - If omitted, uses current directory with video title as filename
+  - For playlists, specify a directory to save all videos
+
+**Options:**
+- `--verbose`: Show detailed ffmpeg logs during processing
+- `--auto-cleanup`: Delete cached video files after HTML generation
+- `--no-detect-duplicates`: Disable duplicate slide detection (enabled by default)
+
+**Examples:**
+```bash
+# Basic usage - saves to current directory with video title
+glancer https://youtube.com/watch?v=VIDEO_ID
+
+# Specify output file
+glancer https://youtube.com/watch?v=VIDEO_ID output.html
+
+# Verbose output with cleanup
+glancer https://youtube.com/watch?v=VIDEO_ID --verbose --auto-cleanup
+
+# Disable duplicate slide detection
+glancer https://youtube.com/watch?v=VIDEO_ID --no-detect-duplicates
+
+# Process entire playlist to directory
+glancer https://youtube.com/playlist?list=PLAYLIST_ID videos/
+```
+
+## Requirements
 
 The Python port requires the following executables on your `$PATH`:
 
-- `yt-dlp`
-- `ffmpeg`
-
-Both commands are used exactly like in the Haskell version: `yt-dlp` downloads
-the video and English subtitles, while `ffmpeg` extracts frames every 30 seconds.
+- `yt-dlp` - Downloads video and English subtitles (SRT format)
+- `ffmpeg` - Extracts JPEG frames every 30 seconds
 
 ## Installation
 
@@ -37,7 +63,7 @@ uv tool install .
 After installation, the `glancer` command will be available globally:
 
 ```bash
-glancer <URL> <FILEPATH>
+glancer URL [DESTINATION] [OPTIONS]
 ```
 
 ## Development
@@ -53,13 +79,13 @@ uv pip install -e .
 With editable mode (`-e`), your code changes take effect immediately without reinstalling. You can run the tool as:
 
 ```bash
-glancer <URL> <FILEPATH>
+glancer URL [DESTINATION]
 ```
 
 Or directly with Python:
 
 ```bash
-python -m glancer_py.cli <URL> <FILEPATH>
+python -m glancer.cli URL [DESTINATION]
 ```
 
 Run tests with:

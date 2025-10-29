@@ -5,7 +5,7 @@ import re
 import sys
 from pathlib import Path
 
-from .captions import convert_to_html
+from .slides import convert_to_html
 from .parser import parse_srt
 from .playlist import Playlist
 from .process import cleanup_cache, delete_images, process_video
@@ -21,27 +21,34 @@ def _sanitize_filename(filename: str) -> str:
 
 def run(
     url: str,
-    destination: str,
-    ffmpeg_verbose: bool,
+    destination: str | None,
+    verbose: bool,
     auto_cleanup: bool,
+    detect_duplicates: bool,
 ) -> None:
-    ffmpeg_log_level = "info" if ffmpeg_verbose else "error"
+    ffmpeg_log_level = "info" if verbose else "error"
+
+    # Use current directory if no destination provided
+    dest_path = Path(destination) if destination else Path.cwd()
+
     if Playlist.is_playlist(url):
         playlist = Playlist(url)
         print(f"Processing playlist: {url}", file=sys.stderr)
         for video_url in playlist:
             process_and_save_video(
                 video_url,
-                Path(destination),
+                dest_path,
                 ffmpeg_log_level,
                 auto_cleanup,
+                detect_duplicates,
             )
     else:
         process_and_save_video(
             url,
-            Path(destination),
+            dest_path,
             ffmpeg_log_level,
             auto_cleanup,
+            detect_duplicates,
         )
 
 
@@ -50,12 +57,13 @@ def process_and_save_video(
     destination: Path,
     ffmpeg_log_level: str,
     auto_cleanup: bool,
+    detect_duplicates: bool,
 ) -> None:
     dir_path, video, captions_path = process_video(url, ffmpeg_log_level)
     try:
         captions_text = captions_path.read_text(encoding="utf-8")
         parsed = parse_srt(captions_text)
-        html = convert_to_html(video, dir_path, parsed)
+        html = convert_to_html(video, dir_path, parsed, detect_duplicates)
 
         if destination.is_dir():
             output_path = destination / _sanitize_filename(video.title)
@@ -79,24 +87,32 @@ def main(argv: list[str] | None = None) -> None:
     parser.add_argument("url", help="YouTube URL or playlist URL")
     parser.add_argument(
         "destination",
-        help="HTML file name or directory for playlists",
+        nargs="?",
+        default=None,
+        help="HTML file name or directory (default: current directory with video title)",
     )
     parser.add_argument(
-        "--ffmpeg-verbose",
+        "--verbose",
         action="store_true",
-        help="Show ffmpeg logs",
+        help="Show verbose ffmpeg logs",
     )
     parser.add_argument(
         "--auto-cleanup",
         action="store_true",
         help="Delete cached downloads after HTML generation",
     )
+    parser.add_argument(
+        "--no-detect-duplicates",
+        action="store_true",
+        help="Disable duplicate slide detection",
+    )
     args = parser.parse_args(argv)
     run(
         args.url,
         args.destination,
-        ffmpeg_verbose=args.ffmpeg_verbose,
+        verbose=args.verbose,
         auto_cleanup=args.auto_cleanup,
+        detect_duplicates=not args.no_detect_duplicates,
     )
 
 

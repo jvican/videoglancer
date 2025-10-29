@@ -24,23 +24,33 @@ class Slide:
     duplicate: bool
 
 
-def convert_to_html(video: Video, directory: Path, captions: list[Caption]) -> str:
-    return captions_to_html(video, directory, captions)
+def convert_to_html(
+    video: Video, directory: Path, captions: list[Caption], detect_duplicates: bool = True
+) -> str:
+    return captions_to_html(video, directory, captions, detect_duplicates)
 
 
-def captions_to_html(video: Video, directory: Path, captions: list[Caption]) -> str:
-    slides = generate_slides(captions, directory)
+def captions_to_html(
+    video: Video, directory: Path, captions: list[Caption], detect_duplicates: bool = True
+) -> str:
+    slides = generate_slides(captions, directory, detect_duplicates)
     slides_html = render_slides(slides, video.url, directory)
     return embody(video, slides_html)
 
 
-def generate_slides(captions: list[Caption], directory: Path) -> list[Slide]:
+def generate_slides(
+    captions: list[Caption], directory: Path, detect_duplicates: bool = True
+) -> list[Slide]:
     if not captions:
         return []
 
     per_slide = captions_per_slide(captions)
     deduped_slides = deduplicate_slides(per_slide)
-    duplicate_shots = find_similar_shots(directory.glob("glancer-img*.jpg"))
+
+    if detect_duplicates:
+        duplicate_shots = find_similar_shots(directory.glob("glancer-img*.jpg"))
+    else:
+        duplicate_shots = set()
 
     slides: list[Slide] = []
     for index, slide_captions in enumerate(deduped_slides):

@@ -12,7 +12,6 @@ dependencies = [
     "srt>=3.5",
     "Pillow>=10.0",
     "Jinja2",
-    "imagehash>=4.3",
 ]
 
 [project.optional-dependencies]
