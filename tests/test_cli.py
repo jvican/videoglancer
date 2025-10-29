@@ -12,7 +12,7 @@ def mock_process_video(tmp_path: Path):
     with patch("glancer.cli.process_video") as mock:
         video_dir = tmp_path / "glancer" / "video_id"
         video_dir.mkdir(parents=True, exist_ok=True)
-        captions_path = video_dir / "video_id.en.vtt"
+        captions_path = video_dir / "video_id.en.srt"
         captions_path.touch()
         mock.return_value = (
             video_dir,
@@ -23,8 +23,8 @@ def mock_process_video(tmp_path: Path):
 
 
 @pytest.fixture
-def mock_parse_vtt():
-    with patch("glancer.cli.parse_vtt") as mock:
+def mock_parse_srt():
+    with patch("glancer.cli.parse_srt") as mock:
         mock.return_value = []
         yield mock
 
@@ -38,7 +38,7 @@ def mock_convert_to_html():
 
 def test_main(
     mock_process_video: MagicMock,
-    mock_parse_vtt: MagicMock,
+    mock_parse_srt: MagicMock,
     mock_convert_to_html: MagicMock,
     tmp_path: Path,
 ):
@@ -50,7 +50,7 @@ def test_main(
         ]
     )
     mock_process_video.assert_called_once()
-    mock_parse_vtt.assert_called_once()
+    mock_parse_srt.assert_called_once()
     mock_convert_to_html.assert_called_once()
     assert output_path.exists()
     assert output_path.read_text() == "<html></html>"
@@ -59,5 +59,5 @@ def test_main_playlist(tmp_path: Path) -> None:
     with patch("glancer.cli.run") as mock_run:
         main(["--auto-cleanup", "http://playlist.test", str(tmp_path)])
     mock_run.assert_called_once_with(
-        "http://playlist.test", str(tmp_path), ffmpeg_verbose=False, auto_cleanup=True
+        "http://playlist.test", str(tmp_path), verbose=False, auto_cleanup=True, detect_duplicates=True
     )

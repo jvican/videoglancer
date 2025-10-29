@@ -2,13 +2,12 @@ from __future__ import annotations
 from pathlib import Path
 import pytest
 from PIL import Image
-from glancer.captions import (
+from glancer.slides import (
     Slide,
     generate_slides,
     render_slides,
     captions_to_html,
     normalize_caption_text,
-    deduplicate_slides,
 )
 from glancer.parser import Caption
 from glancer.process import Video
@@ -61,7 +60,7 @@ def test_captions_to_html(
 
 
 def test_missing_image_returns_empty(tmp_path: Path) -> None:
-    from glancer.captions import slide_block
+    from glancer.slides import slide_block
     result = slide_block("http://example.com", tmp_path, 99, False)
     assert result == ""
 
@@ -69,24 +68,3 @@ def test_missing_image_returns_empty(tmp_path: Path) -> None:
 def test_normalize_caption_text() -> None:
     assert normalize_caption_text("  hello\nworld  ") == "hello world"
     assert normalize_caption_text("") == ""
-
-
-def test_deduplicate_slides() -> None:
-    cap1 = Caption(start=0.0, end=1.0, text="Hello")
-    cap2 = Caption(start=0.0, end=1.0, text="Hello")
-    cap3 = Caption(start=1.0, end=2.0, text="World")
-    slides = [[cap1, cap2, cap3], [cap1, cap3]]
-    result = deduplicate_slides(slides)
-    assert len(result) == 2
-    assert len(result[0]) == 2
-    assert len(result[1]) == 0
-
-def test_deduplicate_slides_with_different_timestamps() -> None:
-    cap1 = Caption(start=0.0, end=1.0, text="Hello")
-    cap2 = Caption(start=0.1, end=1.1, text="Hello")
-    cap3 = Caption(start=1.0, end=2.0, text="World")
-    slides = [[cap1, cap2, cap3], [cap1, cap3]]
-    result = deduplicate_slides(slides)
-    assert len(result) == 2
-    assert len(result[0]) == 2
-    assert len(result[1]) == 0
