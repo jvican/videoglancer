@@ -3,7 +3,7 @@ name = "videoglancer"
 version = "0.1.1"
 description = "Python port of glancer: glance through YouTube talks by stitching slides and captions."
 readme = "README.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 authors = [
     {name = "Jorge Vicente Cantero", email = "jorgevc@fastmail.es"},
     {name = "Ruben Berenguel Montoro", email = "ruben@mostlymaths.net"},
