@@ -1,6 +1,14 @@
-# Python Glancer
+# Videoglancer :movie: :detective:
 
-This folder contains a Python reimplementation of the original [glancer](https://github.com/rberenguel/glancer) tool.
+Videoglancer is a tool to convert videos to slides of screenshots with
+transcripts on the side to quickly glance through a video! Supports yt-dlp
+videos and outputs standalone html documents that are easy to distribute.
+
+Unlike fully watching a video, videoglancer creates a distributable document to
+quickly process the video images, read the transcription, look for search terms,
+and speed-watch videos for exactly the content you want. It's extremely handy
+for studying purposes (recalling contents of a video, searching for a memorable
+sentence) and it's a time-saver for all mortals.
 
 ## Usage
 
@@ -100,3 +108,10 @@ pytest
 The generated HTML mirrors the original layout. Each slide combines an embedded
 base64 JPEG frame with the captions that overlap that 30-second window, and
 links let you jump back to the corresponding point in YouTube.
+
+## Acknowledgements
+
+The main idea for this tool has been borrowed from the original
+[glancer](https://github.com/rberenguel/glancer) tool. Nonetheless, it's been
+rewritten in Python, improved with tests and bugfixes, and has yt-dlp playlist
+support so you can glance all videos in a playlist.
