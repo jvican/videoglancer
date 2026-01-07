@@ -32,6 +32,7 @@ def run(
     auto_cleanup: bool,
     detect_duplicates: bool,
     output_pdf: bool,
+    compact: bool,
 ) -> None:
     ffmpeg_log_level = "info" if verbose else "error"
 
@@ -49,6 +50,7 @@ def run(
                 auto_cleanup,
                 detect_duplicates,
                 output_pdf,
+                compact,
             )
     else:
         process_and_save_video(
@@ -58,6 +60,7 @@ def run(
             auto_cleanup,
             detect_duplicates,
             output_pdf,
+            compact,
         )
 
 
@@ -68,6 +71,7 @@ def process_and_save_video(
     auto_cleanup: bool,
     detect_duplicates: bool,
     output_pdf: bool,
+    compact: bool,
 ) -> None:
     dir_path, video, captions_path = process_video(url, ffmpeg_log_level)
     try:
@@ -83,7 +87,9 @@ def process_and_save_video(
             destination_path = _ensure_pdf_suffix(output_path.expanduser())
             destination_path.parent.mkdir(parents=True, exist_ok=True)
             print(f"Writing PDF to {destination_path}", file=sys.stderr)
-            convert_to_pdf(video, dir_path, parsed, destination_path, detect_duplicates)
+            convert_to_pdf(
+                video, dir_path, parsed, destination_path, detect_duplicates, compact
+            )
         else:
             html = convert_to_html(video, dir_path, parsed, detect_duplicates)
             destination_path = _ensure_html_suffix(output_path.expanduser())
@@ -131,6 +137,11 @@ def main(argv: list[str] | None = None) -> None:
         action="store_true",
         help="Output as PDF instead of HTML (requires typst CLI)",
     )
+    parser.add_argument(
+        "--compact-experimental",
+        action="store_true",
+        help="Use compact side-by-side layout for PDF (experimental)",
+    )
     args = parser.parse_args(argv)
 
     log_level = logging.DEBUG if args.verbose else logging.WARNING
@@ -143,6 +154,7 @@ def main(argv: list[str] | None = None) -> None:
         auto_cleanup=args.auto_cleanup,
         detect_duplicates=not args.no_detect_duplicates,
         output_pdf=args.pdf,
+        compact=args.compact_experimental,
     )
 
 

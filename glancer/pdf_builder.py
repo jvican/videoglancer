@@ -18,6 +18,7 @@ def convert_to_pdf(
     captions: list[Caption],
     output_path: Path,
     detect_duplicates: bool = True,
+    compact: bool = False,
 ) -> None:
     """Generate a dense PDF from video slides using Typst."""
     slides = generate_slides(captions, directory, detect_duplicates)
@@ -33,7 +34,7 @@ def convert_to_pdf(
                 shutil.copy(src_img, dst_img)
 
         # Generate Typst content
-        typst_content = generate_typst(video, slides, tmp_path)
+        typst_content = generate_typst(video, slides, tmp_path, compact)
 
         # Write Typst file
         typst_file = tmp_path / "output.typ"
@@ -46,41 +47,53 @@ def convert_to_pdf(
         )
 
 
-def generate_typst(video: Video, slides: list[Slide], image_dir: Path) -> str:
+def generate_typst(
+    video: Video, slides: list[Slide], image_dir: Path, compact: bool = False
+) -> str:
     """Generate complete Typst document content."""
-    header = generate_header(video)
-    slides_content = generate_slides_typst(slides, video.url, image_dir)
+    header = generate_header(video, compact)
+    slides_content = generate_slides_typst(slides, video.url, image_dir, compact)
 
+    gutter = "0.3cm" if compact else "0.4cm"
     return f"""{header}
 
-#columns(2, gutter: 0.4cm)[
+#columns(2, gutter: {gutter})[
 {slides_content}
 ]
 """
 
 
-def generate_header(video: Video) -> str:
+def generate_header(video: Video, compact: bool = False) -> str:
     """Generate Typst document header with page setup."""
-    # Escape special Typst characters in title
     escaped_title = escape_typst(video.title)
     escaped_url = video.url
 
-    return f"""#set page(margin: 0.5cm, paper: "a4")
-#set text(size: 9pt)
-#set par(leading: 0.5em, justify: true)
+    margin = "0.3cm" if compact else "0.5cm"
+    font_size = "8pt" if compact else "9pt"
+    title_size = "12pt" if compact else "14pt"
+    spacing = "0.2cm" if compact else "0.3cm"
+
+    return f"""#set page(margin: {margin}, paper: "a4")
+#set text(size: {font_size})
+#set par(leading: 0.4em, justify: true)
 
 #align(center)[
-  #text(14pt, weight: "bold")[#link("{escaped_url}")[{escaped_title}]]
+  #text({title_size}, weight: "bold")[#link("{escaped_url}")[{escaped_title}]]
 ]
-#v(0.3cm)
+#v({spacing})
 """
 
 
-def generate_slides_typst(slides: list[Slide], url: str, image_dir: Path) -> str:
+def generate_slides_typst(
+    slides: list[Slide], url: str, image_dir: Path, compact: bool = False
+) -> str:
     """Generate Typst content for all slides."""
     blocks = []
     for slide in slides:
-        block = render_slide_typst(slide, url, image_dir)
+        if compact:
+            block = render_slide_compact(slide, url, image_dir)
+        else:
+            block = render_slide_typst(slide, url, image_dir)
         if block:
             blocks.append(block)
     return "\n".join(blocks)
@@ -93,15 +106,12 @@ def render_slide_typst(slide: Slide, url: str, image_dir: Path) -> str:
     if not img_path.exists():
         return ""
 
-    # Get caption text
     caption_text = get_slide_text(slide.captions)
     escaped_caption = escape_typst(caption_text)
 
-    # Calculate timestamp for YouTube link
     timestamp = slide.index * SECONDS_PER_SHOT
     video_link = f"{url}&t={timestamp}s"
 
-    # Use relative path for Typst (relative to the .typ file location)
     return f"""#block(breakable: false, width: 100%)[
   #image("{img_filename}", width: 100%)
   #v(0.1cm)
@@ -109,6 +119,35 @@ def render_slide_typst(slide: Slide, url: str, image_dir: Path) -> str:
   #v(0.05cm)
   #align(right)[#text(size: 7pt)[#link("{video_link}")[▶ {format_timestamp(timestamp)}]]]
   #v(0.2cm)
+]
+"""
+
+
+def render_slide_compact(slide: Slide, url: str, image_dir: Path) -> str:
+    """Render a slide in compact side-by-side layout (image left, text right)."""
+    img_filename = f"img{slide.index:04d}.jpg"
+    img_path = image_dir / img_filename
+    if not img_path.exists():
+        return ""
+
+    caption_text = get_slide_text(slide.captions)
+    escaped_caption = escape_typst(caption_text)
+
+    timestamp = slide.index * SECONDS_PER_SHOT
+    video_link = f"{url}&t={timestamp}s"
+
+    return f"""#block(breakable: false, width: 100%)[
+  #grid(
+    columns: (1fr, 1fr),
+    gutter: 0.15cm,
+    image("{img_filename}", width: 100%),
+    [
+      #text(size: 7pt)[{escaped_caption}]
+      #v(0.05cm)
+      #align(right)[#text(size: 6pt)[#link("{video_link}")[▶ {format_timestamp(timestamp)}]]]
+    ]
+  )
+  #v(0.1cm)
 ]
 """
 
