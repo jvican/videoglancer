@@ -202,13 +202,14 @@ def render_slide_page(slide: Slide, url: str, image_dir: Path) -> str:
     timestamp = slide.index * SECONDS_PER_SHOT
     video_link = f"{url}&t={timestamp}s"
 
-    # Text at top (~25%), image at bottom (~75%)
+    # Text at top, image at bottom, on same page
     return f"""#page[
-  #text(size: 9pt)[{escaped_caption}]
-  #h(1fr)
-  #text(size: 8pt)[#link("{video_link}")[▶ {format_timestamp(timestamp)}]]
+  #block[
+    #text(size: 9pt)[{escaped_caption}]
+    #align(right)[#text(size: 8pt)[#link("{video_link}")[▶ {format_timestamp(timestamp)}]]]
+  ]
   #v(1fr)
-  #align(center)[#image("{img_filename}", width: 100%)]
+  #image("{img_filename}", width: 100%)
 ]
 """
 
