@@ -1,13 +1,18 @@
 from __future__ import annotations
 
+import base64
 import shutil
 import subprocess
 import tempfile
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from .parser import Caption
 from .process import Video
-from .slides import Slide, generate_slides
+from .slides import Slide, generate_slides, generate_slides_from_content
+
+if TYPE_CHECKING:
+    from .content import ExtractedContent
 
 SECONDS_PER_SHOT = 30
 
@@ -33,6 +38,52 @@ def convert_to_pdf(
             if src_img.exists():
                 dst_img = tmp_path / f"img{slide.index:04d}.jpg"
                 shutil.copy(src_img, dst_img)
+
+        # Generate Typst content
+        typst_content = generate_typst(video, slides, tmp_path, compact, slide_mode)
+
+        # Write Typst file
+        typst_file = tmp_path / "output.typ"
+        typst_file.write_text(typst_content, encoding="utf-8")
+
+        # Compile to PDF
+        subprocess.run(
+            ["typst", "compile", str(typst_file), str(output_path)],
+            check=True,
+        )
+
+
+def convert_to_pdf_from_content(
+    content: "ExtractedContent",
+    output_path: Path,
+    detect_duplicates: bool = True,
+    compact: bool = False,
+    slide_mode: bool = False,
+) -> None:
+    """Generate a PDF from ExtractedContent (Phase 2 workflow).
+
+    This function works with pre-extracted content from JSON, avoiding
+    the need to re-download or re-process the video.
+    """
+    video = content.get_video()
+    captions = content.get_captions()
+
+    # Build image data lookup: index -> base64 data
+    image_data: dict[int, str] = {
+        img["index"]: img["data_base64"] for img in content.images
+    }
+
+    slides = generate_slides_from_content(captions, image_data, detect_duplicates)
+
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        tmp_path = Path(tmp_dir)
+
+        # Write images from base64 data to temp directory
+        for slide in slides:
+            if slide.index in image_data:
+                img_bytes = base64.b64decode(image_data[slide.index])
+                dst_img = tmp_path / f"img{slide.index:04d}.jpg"
+                dst_img.write_bytes(img_bytes)
 
         # Generate Typst content
         typst_content = generate_typst(video, slides, tmp_path, compact, slide_mode)

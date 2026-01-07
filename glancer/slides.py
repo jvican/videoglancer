@@ -6,11 +6,15 @@ import math
 import re
 from dataclasses import dataclass, replace
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from .html_builder import embody
-from .image_similarity import find_similar_shots
+from .image_similarity import find_similar_shots, find_similar_shots_from_data
 from .parser import Caption
 from .process import Video
+
+if TYPE_CHECKING:
+    from .content import ExtractedContent
 
 logger = logging.getLogger(__name__)
 
@@ -207,3 +211,100 @@ def overlaps_interval(
     start_a: float, end_a: float, start_b: float, end_b: float
 ) -> bool:
     return start_a <= end_b and end_a >= start_b
+
+
+# === Functions for generating HTML from ExtractedContent ===
+
+
+def convert_to_html_from_content(
+    content: "ExtractedContent",
+    detect_duplicates: bool = True,
+) -> str:
+    """Generate HTML from ExtractedContent (Phase 2 workflow).
+
+    This function works with pre-extracted content from JSON, avoiding
+    the need to re-download or re-process the video.
+    """
+    video = content.get_video()
+    captions = content.get_captions()
+
+    # Build image data lookup: index -> base64 data
+    image_data: dict[int, str] = {
+        img["index"]: img["data_base64"] for img in content.images
+    }
+
+    slides = generate_slides_from_content(captions, image_data, detect_duplicates)
+    slides_html = render_slides_from_content(slides, video.url, image_data)
+    return embody(video, slides_html)
+
+
+def generate_slides_from_content(
+    captions: list[Caption],
+    image_data: dict[int, str],
+    detect_duplicates: bool = True,
+) -> list[Slide]:
+    """Generate slides from captions and pre-extracted image data."""
+    if not captions:
+        return []
+
+    per_slide = captions_per_slide(captions)
+    logger.debug(f"Generated {len(per_slide)} slides from captions")
+
+    if detect_duplicates:
+        # Use the image data directly for similarity detection
+        duplicate_shots = find_similar_shots_from_data(image_data)
+    else:
+        duplicate_shots = set()
+
+    slides: list[Slide] = []
+    for index, slide_captions in enumerate(per_slide):
+        is_duplicate = index in duplicate_shots
+        slides.append(
+            Slide(index=index, captions=slide_captions, duplicate=is_duplicate)
+        )
+
+    if slides:
+        logger.debug(f"Created {len(slides)} slides (indices 0-{len(slides) - 1})")
+
+    return slides
+
+
+def render_slides_from_content(
+    slides: list[Slide], url: str, image_data: dict[int, str]
+) -> str:
+    """Render all slides to HTML using pre-extracted image data."""
+    blocks = [render_slide_from_content(slide, url, image_data) for slide in slides]
+    return "\n".join(blocks)
+
+
+def render_slide_from_content(
+    slide: Slide, url: str, image_data: dict[int, str]
+) -> str:
+    """Render a single slide using pre-extracted image data."""
+    image_block = slide_block_from_content(url, slide.index, slide.duplicate, image_data)
+    if not image_block:
+        return ""
+    text_block = caps(slide.captions)
+    to_video = to_video_block(url, slide.index)
+    return f"{image_block}{text_block}{to_video}</div>"
+
+
+def slide_block_from_content(
+    url: str, shot: int, duplicate: bool, image_data: dict[int, str]
+) -> str:
+    """Generate HTML for a slide image using pre-extracted base64 data."""
+    if shot not in image_data:
+        logger.warning(f"Missing image data for slide {shot}")
+        return ""
+
+    encoded = image_data[shot]
+    classes = ["slide-block"]
+    if duplicate:
+        classes.append("duplicate")
+    class_attr = " ".join(classes)
+    return (
+        f"<div id='slide{shot}' class='{class_attr}'>\n"
+        "\t<div class='img'>\n"
+        f"\t\t<img src='data:image/jpeg;base64, {encoded}'/></a>\n"
+        "\t</div>\n"
+    )
