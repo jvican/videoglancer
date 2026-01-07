@@ -190,7 +190,6 @@ def render_slide_compact(slide: Slide, url: str, image_dir: Path) -> str:
 
 
 def render_slide_page(slide: Slide, url: str, image_dir: Path) -> str:
-    """Render a slide as a full page (text top, image bottom)."""
     img_filename = f"img{slide.index:04d}.jpg"
     img_path = image_dir / img_filename
     if not img_path.exists():
@@ -198,18 +197,31 @@ def render_slide_page(slide: Slide, url: str, image_dir: Path) -> str:
 
     caption_text = get_slide_text(slide.captions)
     escaped_caption = escape_typst(caption_text)
-
     timestamp = slide.index * SECONDS_PER_SHOT
     video_link = f"{url}&t={timestamp}s"
 
-    # Text at top, image at bottom, on same page
-    return f"""#page[
-  #block[
-    #text(size: 9pt)[{escaped_caption}]
-    #align(right)[#text(size: 8pt)[#link("{video_link}")[▶ {format_timestamp(timestamp)}]]]
-  ]
-  #v(1fr)
-  #image("{img_filename}", width: 100%)
+    return f"""
+#block(
+  width: 100%, 
+  height: 48%,
+  breakable: false, 
+  inset: (y: 2pt),
+  spacing: 0pt
+)[
+  #grid(
+    columns: (0.6fr, 1.4fr),
+    column-gutter: 6pt,
+    align: top,
+    [
+      #set par(leading: 0.4em)
+      #text(size: 8pt)[{escaped_caption}]
+      #v(2pt)
+      #text(size: 7pt)[#link("{video_link}")[▶ {format_timestamp(timestamp)}]]
+    ],
+    align(right + top)[
+      #image("{img_filename}", width: 100%, height: 100%, fit: "contain")
+    ]
+  )
 ]
 """
 
