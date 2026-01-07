@@ -59,5 +59,12 @@ def test_main_playlist(tmp_path: Path) -> None:
     with patch("glancer.cli.run") as mock_run:
         main(["--auto-cleanup", "http://playlist.test", str(tmp_path)])
     mock_run.assert_called_once_with(
-        "http://playlist.test", str(tmp_path), verbose=False, auto_cleanup=True, detect_duplicates=True
+        "http://playlist.test",
+        str(tmp_path),
+        verbose=False,
+        auto_cleanup=True,
+        detect_duplicates=True,
+        output_pdf=False,
+        compact=False,
+        slide_mode=False,
     )
