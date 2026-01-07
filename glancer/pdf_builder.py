@@ -100,16 +100,17 @@ def generate_header(video: Video, compact: bool = False) -> str:
 
 
 def generate_header_slide_mode(video: Video) -> str:
-    """Generate Typst header for slide mode (one page per slide, landscape)."""
+    """Generate Typst header for slide mode (one page per slide, presentation size)."""
     escaped_title = escape_typst(video.title)
     escaped_url = video.url
 
-    return f"""#set page(margin: 0.8cm, paper: "a4", flipped: true)
-#set text(size: 10pt)
+    # 16:9 aspect ratio page, similar to presentation slides
+    return f"""#set page(width: 20cm, height: 11.25cm, margin: 0.6cm)
+#set text(size: 9pt)
 #set par(leading: 0.5em, justify: true)
 
 #align(center)[
-  #text(14pt, weight: "bold")[#link("{escaped_url}")[{escaped_title}]]
+  #text(12pt, weight: "bold")[#link("{escaped_url}")[{escaped_title}]]
 ]
 """
 
@@ -189,7 +190,7 @@ def render_slide_compact(slide: Slide, url: str, image_dir: Path) -> str:
 
 
 def render_slide_page(slide: Slide, url: str, image_dir: Path) -> str:
-    """Render a slide as a full page (landscape, image left, text right)."""
+    """Render a slide as a full page (text top, image bottom)."""
     img_filename = f"img{slide.index:04d}.jpg"
     img_path = image_dir / img_filename
     if not img_path.exists():
@@ -201,18 +202,13 @@ def render_slide_page(slide: Slide, url: str, image_dir: Path) -> str:
     timestamp = slide.index * SECONDS_PER_SHOT
     video_link = f"{url}&t={timestamp}s"
 
-    # Landscape: image 70%, text 30%
+    # Text at top (~25%), image at bottom (~75%)
     return f"""#page[
-  #grid(
-    columns: (70%, 30%),
-    gutter: 0.8cm,
-    align(horizon)[#image("{img_filename}", width: 100%)],
-    [
-      #text(size: 10pt)[{escaped_caption}]
-      #v(1fr)
-      #align(right)[#text(size: 9pt)[#link("{video_link}")[▶ {format_timestamp(timestamp)}]]]
-    ]
-  )
+  #text(size: 9pt)[{escaped_caption}]
+  #h(1fr)
+  #text(size: 8pt)[#link("{video_link}")[▶ {format_timestamp(timestamp)}]]
+  #v(1fr)
+  #align(center)[#image("{img_filename}", width: 100%)]
 ]
 """
 
