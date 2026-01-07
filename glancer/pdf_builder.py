@@ -19,6 +19,7 @@ def convert_to_pdf(
     output_path: Path,
     detect_duplicates: bool = True,
     compact: bool = False,
+    slide_mode: bool = False,
 ) -> None:
     """Generate a dense PDF from video slides using Typst."""
     slides = generate_slides(captions, directory, detect_duplicates)
@@ -34,7 +35,7 @@ def convert_to_pdf(
                 shutil.copy(src_img, dst_img)
 
         # Generate Typst content
-        typst_content = generate_typst(video, slides, tmp_path, compact)
+        typst_content = generate_typst(video, slides, tmp_path, compact, slide_mode)
 
         # Write Typst file
         typst_file = tmp_path / "output.typ"
@@ -48,14 +49,28 @@ def convert_to_pdf(
 
 
 def generate_typst(
-    video: Video, slides: list[Slide], image_dir: Path, compact: bool = False
+    video: Video,
+    slides: list[Slide],
+    image_dir: Path,
+    compact: bool = False,
+    slide_mode: bool = False,
 ) -> str:
     """Generate complete Typst document content."""
-    header = generate_header(video, compact)
-    slides_content = generate_slides_typst(slides, video.url, image_dir, compact)
+    if slide_mode:
+        header = generate_header_slide_mode(video)
+        slides_content = generate_slides_typst(
+            slides, video.url, image_dir, compact=False, slide_mode=True
+        )
+        return f"""{header}
 
-    gutter = "0.3cm" if compact else "0.4cm"
-    return f"""{header}
+{slides_content}
+"""
+    else:
+        header = generate_header(video, compact)
+        slides_content = generate_slides_typst(slides, video.url, image_dir, compact)
+
+        gutter = "0.3cm" if compact else "0.4cm"
+        return f"""{header}
 
 #columns(2, gutter: {gutter})[
 {slides_content}
@@ -84,13 +99,34 @@ def generate_header(video: Video, compact: bool = False) -> str:
 """
 
 
+def generate_header_slide_mode(video: Video) -> str:
+    """Generate Typst header for slide mode (one page per slide)."""
+    escaped_title = escape_typst(video.title)
+    escaped_url = video.url
+
+    return f"""#set page(margin: 1cm, paper: "a4")
+#set text(size: 11pt)
+#set par(leading: 0.6em, justify: true)
+
+#align(center)[
+  #text(16pt, weight: "bold")[#link("{escaped_url}")[{escaped_title}]]
+]
+"""
+
+
 def generate_slides_typst(
-    slides: list[Slide], url: str, image_dir: Path, compact: bool = False
+    slides: list[Slide],
+    url: str,
+    image_dir: Path,
+    compact: bool = False,
+    slide_mode: bool = False,
 ) -> str:
     """Generate Typst content for all slides."""
     blocks = []
     for slide in slides:
-        if compact:
+        if slide_mode:
+            block = render_slide_page(slide, url, image_dir)
+        elif compact:
             block = render_slide_compact(slide, url, image_dir)
         else:
             block = render_slide_typst(slide, url, image_dir)
@@ -148,6 +184,32 @@ def render_slide_compact(slide: Slide, url: str, image_dir: Path) -> str:
     ]
   )
   #v(0.1cm)
+]
+"""
+
+
+def render_slide_page(slide: Slide, url: str, image_dir: Path) -> str:
+    """Render a slide as a full page (one slide per page)."""
+    img_filename = f"img{slide.index:04d}.jpg"
+    img_path = image_dir / img_filename
+    if not img_path.exists():
+        return ""
+
+    caption_text = get_slide_text(slide.captions)
+    escaped_caption = escape_typst(caption_text)
+
+    timestamp = slide.index * SECONDS_PER_SHOT
+    video_link = f"{url}&t={timestamp}s"
+
+    # Image takes ~60% of page height, text takes ~40%
+    return f"""#page[
+  #align(center)[
+    #image("{img_filename}", height: 55%)
+  ]
+  #v(0.5cm)
+  #text(size: 11pt)[{escaped_caption}]
+  #v(0.3cm)
+  #align(right)[#text(size: 9pt)[#link("{video_link}")[▶ {format_timestamp(timestamp)}]]]
 ]
 """
 

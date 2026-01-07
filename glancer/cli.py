@@ -33,6 +33,7 @@ def run(
     detect_duplicates: bool,
     output_pdf: bool,
     compact: bool,
+    slide_mode: bool,
 ) -> None:
     ffmpeg_log_level = "info" if verbose else "error"
 
@@ -51,6 +52,7 @@ def run(
                 detect_duplicates,
                 output_pdf,
                 compact,
+                slide_mode,
             )
     else:
         process_and_save_video(
@@ -61,6 +63,7 @@ def run(
             detect_duplicates,
             output_pdf,
             compact,
+            slide_mode,
         )
 
 
@@ -72,6 +75,7 @@ def process_and_save_video(
     detect_duplicates: bool,
     output_pdf: bool,
     compact: bool,
+    slide_mode: bool,
 ) -> None:
     dir_path, video, captions_path = process_video(url, ffmpeg_log_level)
     try:
@@ -88,7 +92,13 @@ def process_and_save_video(
             destination_path.parent.mkdir(parents=True, exist_ok=True)
             print(f"Writing PDF to {destination_path}", file=sys.stderr)
             convert_to_pdf(
-                video, dir_path, parsed, destination_path, detect_duplicates, compact
+                video,
+                dir_path,
+                parsed,
+                destination_path,
+                detect_duplicates,
+                compact,
+                slide_mode,
             )
         else:
             html = convert_to_html(video, dir_path, parsed, detect_duplicates)
@@ -142,6 +152,11 @@ def main(argv: list[str] | None = None) -> None:
         action="store_true",
         help="Use compact side-by-side layout for PDF (experimental)",
     )
+    parser.add_argument(
+        "--slide-experimental",
+        action="store_true",
+        help="One slide per page for easy arrow-key navigation (experimental)",
+    )
     args = parser.parse_args(argv)
 
     log_level = logging.DEBUG if args.verbose else logging.WARNING
@@ -155,6 +170,7 @@ def main(argv: list[str] | None = None) -> None:
         detect_duplicates=not args.no_detect_duplicates,
         output_pdf=args.pdf,
         compact=args.compact_experimental,
+        slide_mode=args.slide_experimental,
     )
 
 
