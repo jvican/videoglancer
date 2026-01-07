@@ -201,19 +201,21 @@ def render_slide_page(slide: Slide, url: str, image_dir: Path) -> str:
     timestamp = slide.index * SECONDS_PER_SHOT
     video_link = f"{url}&t={timestamp}s"
 
-    # Landscape: image 72%, text 28%
+    # Landscape: image 72%, text 28%, fill page height
     return f"""#page[
-  #grid(
-    columns: (72%, 28%),
-    gutter: 0.5cm,
-    align(horizon)[#image("{img_filename}", width: 100%)],
-    [
-      #v(0.3cm)
-      #text(size: 10pt)[{escaped_caption}]
-      #v(1fr)
-      #align(right)[#text(size: 9pt)[#link("{video_link}")[▶ {format_timestamp(timestamp)}]]]
-    ]
-  )
+  #box(height: 100%, width: 100%)[
+    #grid(
+      columns: (72%, 28%),
+      rows: (100%),
+      gutter: 0.5cm,
+      box(height: 100%)[#align(horizon)[#image("{img_filename}", height: 100%)]],
+      box(height: 100%)[
+        #text(size: 10pt)[{escaped_caption}]
+        #v(1fr)
+        #align(right)[#text(size: 9pt)[#link("{video_link}")[▶ {format_timestamp(timestamp)}]]]
+      ]
+    )
+  ]
 ]
 """
 
