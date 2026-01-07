@@ -100,16 +100,16 @@ def generate_header(video: Video, compact: bool = False) -> str:
 
 
 def generate_header_slide_mode(video: Video) -> str:
-    """Generate Typst header for slide mode (one page per slide)."""
+    """Generate Typst header for slide mode (one page per slide, landscape)."""
     escaped_title = escape_typst(video.title)
     escaped_url = video.url
 
-    return f"""#set page(margin: 1cm, paper: "a4")
-#set text(size: 11pt)
-#set par(leading: 0.6em, justify: true)
+    return f"""#set page(margin: 0.8cm, paper: "a4", flipped: true)
+#set text(size: 10pt)
+#set par(leading: 0.5em, justify: true)
 
 #align(center)[
-  #text(16pt, weight: "bold")[#link("{escaped_url}")[{escaped_title}]]
+  #text(14pt, weight: "bold")[#link("{escaped_url}")[{escaped_title}]]
 ]
 """
 
@@ -189,7 +189,7 @@ def render_slide_compact(slide: Slide, url: str, image_dir: Path) -> str:
 
 
 def render_slide_page(slide: Slide, url: str, image_dir: Path) -> str:
-    """Render a slide as a full page (one slide per page)."""
+    """Render a slide as a full page (landscape, image left, text right)."""
     img_filename = f"img{slide.index:04d}.jpg"
     img_path = image_dir / img_filename
     if not img_path.exists():
@@ -201,15 +201,19 @@ def render_slide_page(slide: Slide, url: str, image_dir: Path) -> str:
     timestamp = slide.index * SECONDS_PER_SHOT
     video_link = f"{url}&t={timestamp}s"
 
-    # Image takes ~60% of page height, text takes ~40%
+    # Landscape: image 72%, text 28%
     return f"""#page[
-  #align(center)[
-    #image("{img_filename}", height: 55%)
-  ]
-  #v(0.5cm)
-  #text(size: 11pt)[{escaped_caption}]
-  #v(0.3cm)
-  #align(right)[#text(size: 9pt)[#link("{video_link}")[▶ {format_timestamp(timestamp)}]]]
+  #grid(
+    columns: (72%, 28%),
+    gutter: 0.5cm,
+    align(horizon)[#image("{img_filename}", width: 100%)],
+    [
+      #v(0.3cm)
+      #text(size: 10pt)[{escaped_caption}]
+      #v(1fr)
+      #align(right)[#text(size: 9pt)[#link("{video_link}")[▶ {format_timestamp(timestamp)}]]]
+    ]
+  )
 ]
 """
 
