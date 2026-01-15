@@ -6,7 +6,7 @@ from glancer.slides import (
     Slide,
     generate_slides,
     render_slides,
-    captions_to_html,
+    convert_to_html,
     normalize_caption_text,
 )
 from glancer.parser import Caption
@@ -47,13 +47,13 @@ def test_render_slides(sample_captions: list[Caption], tmp_path: Path) -> None:
     assert "data:image/jpeg;base64" in rendered_html
 
 
-def test_captions_to_html(
+def test_convert_to_html(
     sample_captions: list[Caption], sample_video: Video, tmp_path: Path
 ) -> None:
     for i in range(2):
         create_test_image(tmp_path / f"glancer-img{i:04d}.jpg")
 
-    html = captions_to_html(sample_video, tmp_path, sample_captions)
+    html = convert_to_html(sample_video, tmp_path, sample_captions)
     assert isinstance(html, str)
     assert "Sample Video" in html
     assert "slide-block" in html

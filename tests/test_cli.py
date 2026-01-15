@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 from PIL import Image
 from glancer.cli import main
-from glancer.content import ExtractedContent
+from glancer.content import ExtractedContent, VideoInfo, SlideData
 from glancer.process import Video
 
 
@@ -102,64 +102,52 @@ def test_main_extract_json(
     mock_process_video.assert_called_once()
     mock_parse_srt.assert_called_once()
     assert output_path.exists()
-    # Verify valid JSON
+    # Verify valid JSON with new schema
     data = json.loads(output_path.read_text())
-    assert "video_url" in data
-    assert "images" in data
-    assert "captions" in data
+    assert "video" in data
+    assert "slides" in data
+    assert data["video"]["url"] == "http://example.com"
 
 
 def test_main_from_json(tmp_path: Path):
     """Test --from-json generates HTML from existing JSON."""
-    # Create a sample JSON file
     json_path = tmp_path / "content.json"
     content = ExtractedContent(
-        schema_version=1,
-        video_url="http://example.com",
-        video_title="Test Video",
-        video_id="test123",
-        captions=[{"start": 0.0, "end": 10.0, "text": "Test caption"}],
-        images=[],
+        video=VideoInfo(url="http://example.com", title="Test Video", id="test123"),
+        slides=[],
         seconds_per_shot=30,
     )
     content.save(json_path)
 
     output_path = tmp_path / "output.html"
-    with patch("glancer.cli.convert_to_html_from_content") as mock_convert:
-        mock_convert.return_value = "<html>from json</html>"
+    with patch("glancer.cli.render_html_from_json") as mock_render:
+        mock_render.return_value = "<html>from json</html>"
         main(["--from-json", str(json_path), str(output_path)])
-    mock_convert.assert_called_once()
+    mock_render.assert_called_once()
     assert output_path.exists()
 
 
 def test_main_from_json_pdf(tmp_path: Path):
     """Test --from-json with --pdf generates PDF from JSON."""
-    # Create a sample JSON file
     json_path = tmp_path / "content.json"
     content = ExtractedContent(
-        schema_version=1,
-        video_url="http://example.com",
-        video_title="Test Video",
-        video_id="test123",
-        captions=[],
-        images=[],
+        video=VideoInfo(url="http://example.com", title="Test Video", id="test123"),
+        slides=[],
         seconds_per_shot=30,
     )
     content.save(json_path)
 
     output_path = tmp_path / "output.pdf"
-    with patch("glancer.cli.convert_to_pdf_from_content") as mock_convert:
+    with patch("glancer.cli.render_pdf_from_json") as mock_render:
         main(["--from-json", str(json_path), "--pdf", str(output_path)])
-    mock_convert.assert_called_once()
+    mock_render.assert_called_once()
 
 
 def test_main_rejects_both_positional_args_with_from_json(tmp_path: Path):
-    """Test that both positional args (url and destination) with --from-json is rejected."""
+    """Test that both positional args with --from-json is rejected."""
     json_path = tmp_path / "content.json"
     json_path.write_text('{"schema_version": 1}')
 
-    # When using --from-json with two positional args, the second is interpreted as destination
-    # and an error is raised
     with pytest.raises(SystemExit):
         main(["--from-json", str(json_path), "output.html", "extra_arg"])
 
