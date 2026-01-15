@@ -21,6 +21,8 @@ dev = [
 
 [project.scripts]
 glancer = "glancer.cli:main"
+glancer-extract = "glancer.extract:main"
+glancer-render = "glancer.render:main"
 
 [build-system]
 requires = ["hatchling"]
