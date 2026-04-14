@@ -137,16 +137,40 @@ def caps(captions: list[Caption]) -> str:
         return "\t<div class='txt'>\n\t</div>"
 
     paragraphs = [normalize_caption_text(caption.text) for caption in captions]
-    paragraphs = [text for text in paragraphs if text]
-    if not paragraphs:
+    combined = combine_caption_texts(paragraphs)
+    if not combined:
         return "\t<div class='txt'>\n\t</div>"
-    combined = " ".join(paragraphs)
-    combined = " ".join(combined.split())
     return f"\t<div class='txt'>\n\t\t{combined}\n\t</div>"
 
 
 def normalize_caption_text(text: str) -> str:
     return " ".join(text.strip().replace("\n", " ").split())
+
+
+def combine_caption_texts(texts: list[str]) -> str:
+    normalized = [normalize_caption_text(text) for text in texts]
+    normalized = [text for text in normalized if text]
+    if not normalized:
+        return ""
+
+    merged_words = normalized[0].split()
+    for text in normalized[1:]:
+        next_words = text.split()
+        overlap = overlapping_word_count(merged_words, next_words)
+        if overlap == len(next_words):
+            continue
+        merged_words.extend(next_words[overlap:])
+    return " ".join(merged_words)
+
+
+def overlapping_word_count(
+    existing_words: list[str], next_words: list[str], min_overlap_words: int = 5
+) -> int:
+    max_overlap = min(len(existing_words), len(next_words))
+    for overlap in range(max_overlap, min_overlap_words - 1, -1):
+        if existing_words[-overlap:] == next_words[:overlap]:
+            return overlap
+    return 0
 
 
 def captions_per_slide(captions: list[Caption]) -> list[list[Caption]]:
@@ -156,21 +180,10 @@ def captions_per_slide(captions: list[Caption]) -> list[list[Caption]]:
     if total_shots <= 0:
         return []
 
-    slides: list[list[Caption]] = []
-    for shot_index in range(total_shots):
-        shot_start = shot_index * SECONDS_PER_SHOT
-        # For the last slide, extend to capture all remaining captions
-        # instead of cutting off at the next 30-second boundary
-        if shot_index == total_shots - 1:
-            shot_end = cleaned[-1].end
-        else:
-            shot_end = shot_start + SECONDS_PER_SHOT
-        overlapping = [
-            caption
-            for caption in cleaned
-            if overlaps_interval(shot_start, shot_end, caption.start, caption.end)
-        ]
-        slides.append(overlapping)
+    slides: list[list[Caption]] = [[] for _ in range(total_shots)]
+    for caption in cleaned:
+        slide_index = assigned_slide_index(caption, total_shots)
+        slides[slide_index].append(caption)
     return slides
 
 
@@ -203,7 +216,19 @@ def strip_tags(text: str) -> str:
     return TAG_RE.sub("", text)
 
 
-def overlaps_interval(
-    start_a: float, end_a: float, start_b: float, end_b: float
-) -> bool:
-    return start_a <= end_b and end_a >= start_b
+def assigned_slide_index(caption: Caption, total_shots: int) -> int:
+    # Assign each caption to the latest slide it overlaps so captions that
+    # cross a boundary appear only on the later slide instead of repeating.
+    if caption.end <= 0:
+        return 0
+
+    ends_on_boundary = math.isclose(
+        caption.end % SECONDS_PER_SHOT, 0.0, abs_tol=1e-9
+    )
+    if ends_on_boundary and caption.start < caption.end:
+        anchor_time = caption.end - 1e-9
+    else:
+        anchor_time = caption.end
+
+    slide_index = int(anchor_time // SECONDS_PER_SHOT)
+    return min(max(slide_index, 0), total_shots - 1)

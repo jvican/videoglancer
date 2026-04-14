@@ -4,6 +4,7 @@ import pytest
 from PIL import Image
 from glancer.slides import (
     Slide,
+    combine_caption_texts,
     generate_slides,
     render_slides,
     captions_to_html,
@@ -70,6 +71,45 @@ def test_normalize_caption_text() -> None:
     assert normalize_caption_text("") == ""
 
 
+def test_combine_caption_texts_removes_rolling_caption_overlap() -> None:
+    texts = [
+        (
+            "Are we Oh, >> yes. Okay, we are we are live. Um, so hello everyone. "
+            "Uh, bear with us I guess uh as we kind of figure all of these things "
+            "out. Um, so I can kind of go over just for today like uh the main "
+            "speaker will be coming in 10 minutes but we will be giving kind of a "
+            "brief intro of of what this all is uh what you guys can expect for "
+            "uh the coming few days. Um and yeah uh so basically uh this"
+        ),
+        (
+            "can expect for uh the coming few days. Um and yeah uh so basically "
+            "uh this series um is going to be as you already know uh on this "
+            "YouTube channel for the next 5 days."
+        ),
+    ]
+
+    combined = combine_caption_texts(texts)
+
+    assert combined.count(
+        "can expect for uh the coming few days. Um and yeah uh so basically uh this"
+    ) == 1
+    assert "this series um is going to be as you already know" in combined
+
+
+def test_combine_caption_texts_does_not_merge_short_common_prefix() -> None:
+    texts = [
+        "I think this works well for most examples",
+        "I think we should test a different case too",
+    ]
+
+    combined = combine_caption_texts(texts)
+
+    assert combined == (
+        "I think this works well for most examples "
+        "I think we should test a different case too"
+    )
+
+
 def test_last_slide_includes_all_remaining_captions(tmp_path: Path) -> None:
     """Test that captions in the final partial interval are not cut off.
 
@@ -109,3 +149,160 @@ def test_last_slide_includes_all_remaining_captions(tmp_path: Path) -> None:
     assert "first caption in partial interval" in caption_texts
     assert "second caption in partial interval" in caption_texts
     assert "last caption at very end" in caption_texts
+
+
+def test_caption_ending_on_boundary_is_not_duplicated() -> None:
+    from glancer.slides import captions_per_slide
+
+    captions = [
+        Caption(start=20.0, end=30.0, text="ends on boundary"),
+        Caption(start=30.0, end=35.0, text="starts at boundary"),
+        Caption(start=58.0, end=61.0, text="crosses second boundary"),
+    ]
+
+    slides = captions_per_slide(captions)
+
+    assert len(slides) == 2
+    assert [cap.text for cap in slides[0]] == ["ends on boundary"]
+    assert [cap.text for cap in slides[1]] == [
+        "starts at boundary",
+        "crosses second boundary",
+    ]
+
+
+def test_caption_starting_on_boundary_belongs_to_next_slide() -> None:
+    from glancer.slides import captions_per_slide
+
+    captions = [
+        Caption(start=0.0, end=10.0, text="first slide"),
+        Caption(start=30.0, end=31.0, text="next slide"),
+        Caption(start=31.0, end=32.0, text="also next slide"),
+        Caption(start=59.0, end=61.0, text="final slide anchor"),
+    ]
+
+    slides = captions_per_slide(captions)
+
+    assert len(slides) == 2
+    assert [cap.text for cap in slides[0]] == ["first slide"]
+    assert [cap.text for cap in slides[1]] == [
+        "next slide",
+        "also next slide",
+        "final slide anchor",
+    ]
+
+
+def test_caption_spanning_boundary_moves_to_later_slide() -> None:
+    from glancer.slides import captions_per_slide
+
+    captions = [
+        Caption(start=24.560, end=32.800, text="can expect for uh the coming few days."),
+        Caption(start=27.439, end=36.640, text="Um and yeah uh so basically uh this"),
+        Caption(start=32.800, end=38.800, text="series um is going to be as you already know"),
+        Caption(start=58.000, end=61.000, text="later caption to force second slide"),
+    ]
+
+    slides = captions_per_slide(captions)
+
+    assert len(slides) == 2
+    assert slides[0] == []
+    assert [cap.text for cap in slides[1]] == [
+        "can expect for uh the coming few days.",
+        "Um and yeah uh so basically uh this",
+        "series um is going to be as you already know",
+        "later caption to force second slide",
+    ]
+
+
+def test_caption_text_that_rolls_across_boundary_is_rendered_once() -> None:
+    from glancer.slides import captions_per_slide
+
+    captions = [
+        Caption(
+            start=24.560,
+            end=32.800,
+            text="can expect for uh the coming few days.",
+        ),
+        Caption(
+            start=27.439,
+            end=36.640,
+            text="can expect for uh the coming few days. Um and yeah uh so basically uh this",
+        ),
+        Caption(
+            start=32.800,
+            end=38.800,
+            text="Um and yeah uh so basically uh this series um is going to be as you already know",
+        ),
+        Caption(start=58.000, end=61.000, text="later caption to force second slide"),
+    ]
+
+    slides = captions_per_slide(captions)
+
+    assert slides[0] == []
+    assert combine_caption_texts([cap.text for cap in slides[1]]) == (
+        "can expect for uh the coming few days. Um and yeah uh so basically uh this "
+        "series um is going to be as you already know later caption to force second slide"
+    )
+
+
+def test_rolling_caption_overlap_moves_to_later_slide() -> None:
+    from glancer.slides import captions_per_slide
+
+    captions = [
+        Caption(
+            start=20.0,
+            end=28.0,
+            text=(
+                "popular choice in modern ams including llama from Madam Quinn "
+                "from Alibaba and"
+            ),
+        ),
+        Caption(
+            start=31.0,
+            end=39.0,
+            text=(
+                "popular choice in modern ams including llama from Madam Quinn "
+                "from Alibaba and Gamma from Google."
+            ),
+        ),
+        Caption(start=58.0, end=61.0, text="final slide anchor"),
+    ]
+
+    slides = captions_per_slide(captions)
+
+    assert [cap.text for cap in slides[0]] == [
+        "popular choice in modern ams including llama from Madam Quinn from Alibaba and"
+    ]
+    assert [cap.text for cap in slides[1]] == [
+        "popular choice in modern ams including llama from Madam Quinn from Alibaba and Gamma from Google.",
+        "final slide anchor",
+    ]
+
+
+def test_boundary_crossing_cues_move_to_later_slide_from_real_srt_pattern() -> None:
+    from glancer.slides import captions_per_slide
+
+    captions = [
+        Caption(start=18.400, end=24.640, text="costs cutting API pricing by 50%. But"),
+        Caption(start=22.320, end=27.119, text="how can we make attention mechanism so"),
+        Caption(start=24.640, end=29.760, text="efficient? As usual, let's build out the"),
+        Caption(start=27.119, end=31.519, text="method from the first principle. But if"),
+        Caption(start=29.760, end=33.840, text="you are already familiar with some of"),
+        Caption(start=31.519, end=35.920, text="the basics, feel free to jump ahead to"),
+        Caption(start=33.840, end=37.920, text="the relevant chapters."),
+        Caption(start=58.000, end=61.000, text="final slide anchor"),
+    ]
+
+    slides = captions_per_slide(captions)
+
+    assert [cap.text for cap in slides[0]] == [
+        "costs cutting API pricing by 50%. But",
+        "how can we make attention mechanism so",
+        "efficient? As usual, let's build out the",
+    ]
+    assert [cap.text for cap in slides[1]] == [
+        "method from the first principle. But if",
+        "you are already familiar with some of",
+        "the basics, feel free to jump ahead to",
+        "the relevant chapters.",
+        "final slide anchor",
+    ]

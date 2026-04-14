@@ -83,19 +83,29 @@ EXPECTED_FIRST_SLIDE_TEXT = (
     "lesson 6… not welcome back to, welcome to lesson 6 — first time we've "
     "been in lesson 6! Welcome back to Practical Deep Learning for Coders. "
     "We just started looking at tabular data last time, and for those of you "
-    "who've forgotten what we did was: We were looking at the Titanic data "
-    "set and we were looking at creating binary splits"
+    "who've forgotten what we did was: We"
+)
+
+EXPECTED_SECOND_SLIDE_PREFIX = (
+    "were looking at the Titanic data set and we were looking at creating "
+    "binary splits"
 )
 
 
-def test_first_slide_contains_full_caption_sequence() -> None:
+def test_boundary_crossing_caption_moves_to_later_slide() -> None:
     captions = parse_srt(SAMPLE_SRT)
     slides = captions_per_slide(captions)
 
-    assert slides, "Expected at least one slide of captions"
+    assert len(slides) >= 2
 
     first_slide_combined = " ".join(
         normalize_caption_text(caption.text) for caption in slides[0]
     )
+    second_slide_combined = " ".join(
+        normalize_caption_text(caption.text) for caption in slides[1]
+    )
+
     assert first_slide_combined.startswith("Practical Deep Learning")
     assert EXPECTED_FIRST_SLIDE_TEXT in first_slide_combined
+    assert EXPECTED_SECOND_SLIDE_PREFIX in second_slide_combined
+    assert EXPECTED_SECOND_SLIDE_PREFIX not in first_slide_combined

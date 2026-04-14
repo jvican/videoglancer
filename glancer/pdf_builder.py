@@ -7,6 +7,7 @@ from pathlib import Path
 
 from .parser import Caption
 from .process import Video
+from .slides import combine_caption_texts
 from .slides import Slide, generate_slides
 
 SECONDS_PER_SHOT = 30
@@ -230,9 +231,8 @@ def get_slide_text(captions: list[Caption]) -> str:
     """Combine captions into a single text block."""
     if not captions:
         return ""
-    texts = [cap.text.strip().replace("\n", " ") for cap in captions]
-    combined = " ".join(texts)
-    return " ".join(combined.split())
+    texts = [cap.text for cap in captions]
+    return combine_caption_texts(texts)
 
 
 def escape_typst(text: str) -> str:
